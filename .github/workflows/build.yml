@@ -55,7 +55,7 @@ jobs:
               with open(bg_path, "w") as f:
                   f.write(bg)
 
-          # 3. Dodanie uprawnien systemowych do AndroidManifest.xml
+          # 3. Dodanie uprawnien systemowych do AndroidManifest.xml (w tym galeria i powiadomienia)
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           if os.path.exists(manifest_path):
               with open(manifest_path, "r") as f:
@@ -65,6 +65,8 @@ jobs:
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
               <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
               """
               if "POST_NOTIFICATIONS" not in m:
                   m = m.replace("<application", perms + "\n    <application")
