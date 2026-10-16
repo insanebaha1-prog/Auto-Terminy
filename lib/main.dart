@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,7 +35,7 @@ Future<void> main() async {
 
 class CarItem {
   final String name;
-  final String imagePath;
+  final String imagePath; // Ścieżka pliku lub klucz gotowej grafiki wbudowanej
 
   CarItem({required this.name, required this.imagePath});
 
@@ -41,7 +43,7 @@ class CarItem {
 
   factory CarItem.fromMap(Map<String, dynamic> map) => CarItem(
         name: map['name'] ?? '',
-        imagePath: map['imagePath'] ?? 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80',
+        imagePath: map['imagePath'] ?? 'suv',
       );
 }
 
@@ -131,7 +133,8 @@ class AutoTerminApp extends StatefulWidget {
 }
 
 class _AutoTerminAppState extends State<AutoTerminApp> {
-  bool _isDarkMode = false;
+  // Domyślnie ustawiony ciemny motyw
+  bool _isDarkMode = true;
 
   void _toggleTheme() {
     setState(() {
@@ -188,12 +191,12 @@ class _HomeScreenState extends State<HomeScreen> {
   List<RepairItem> _repairs = [];
   List<CarItem> _cars = [];
 
-  final List<String> _carIllustrations = [
-    'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80', // SUV
-    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80', // Sport / Hatchback
-    'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80', // Sedan / Premium
-    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80', // Klasyk / Nowoczesne
-  ];
+  final Map<String, IconData> _presetIllustrations = {
+    'suv': Icons.airport_shuttle_rounded,
+    'sedan': Icons.directions_car_filled_rounded,
+    'sport': Icons.electric_car_rounded,
+    'van': Icons.local_shipping_rounded,
+  };
 
   @override
   void initState() {
@@ -232,13 +235,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showAddCarDialog() {
     final customCarController = TextEditingController();
-    String selectedImage = _carIllustrations.first;
+    String selectedPreset = 'suv';
+    String? galleryImagePath;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Dodaj pojazd (wpisz ręcznie)'),
+          title: const Text('Dodaj pojazd'),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -249,41 +253,48 @@ class _HomeScreenState extends State<HomeScreen> {
                   TextField(
                     controller: customCarController,
                     decoration: InputDecoration(
-                      labelText: 'Nazwa auta / model (np. Nissan Qashqai)',
+                      labelText: 'Nazwa auta (np. Nissan Qashqai)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                   const SizedBox(height: 16),
                   const Text('Wybierz gotową ilustrację auta:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    height: 80,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _carIllustrations.length,
-                      itemBuilder: (context, idx) {
-                        final imgUrl = _carIllustrations[idx];
-                        final isSelected = selectedImage == imgUrl;
-                        return GestureDetector(
-                          onTap: () => setDialogState(() => selectedImage = imgUrl),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            width: 100,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: isSelected ? const Color(0xFF1E3C72) : Colors.transparent,
-                                width: 3,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              image: DecorationImage(
-                                image: NetworkImage(imgUrl),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: _presetIllustrations.entries.map((entry) {
+                      final isSelected = selectedPreset == entry.key && galleryImagePath == null;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() {
+                          selectedPreset = entry.key;
+                          galleryImagePath = null;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF1E3C72).withOpacity(0.3) : Colors.transparent,
+                            border: Border.all(color: isSelected ? const Color(0xFF1E3C72) : Colors.grey.shade400, width: 2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        );
-                      },
-                    ),
+                          child: Icon(entry.value, size: 32, color: isSelected ? Colors.blueAccent : Colors.grey),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+                    onPressed: () async {
+                      final ImagePicker picker = ImagePicker();
+                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                      if (image != null) {
+                        setDialogState(() {
+                          galleryImagePath = image.path;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.photo_library),
+                    label: Text(galleryImagePath == null ? 'Dodaj zdjęcie z galerii' : 'Zdjęcie wybrano ✔'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
@@ -291,8 +302,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () {
                       final val = customCarController.text.trim();
                       if (val.isNotEmpty && !_cars.any((c) => c.name == val)) {
+                        final img = galleryImagePath ?? selectedPreset;
                         setState(() {
-                          _cars.add(CarItem(name: val, imagePath: selectedImage));
+                          _cars.add(CarItem(name: val, imagePath: img));
                         });
                         _saveCars();
                         Navigator.pop(context);
@@ -318,7 +330,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showEditCarImageDialog(int index) {
     final car = _cars[index];
-    String selectedImage = car.imagePath;
+    String selectedPreset = 'suv';
+    String? galleryImagePath;
 
     showDialog(
       context: context,
@@ -332,43 +345,51 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Wybierz gotową ilustrację:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text('Wybierz nową ilustrację:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    height: 80,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _carIllustrations.length,
-                      itemBuilder: (context, idx) {
-                        final imgUrl = _carIllustrations[idx];
-                        final isSelected = selectedImage == imgUrl;
-                        return GestureDetector(
-                          onTap: () => setDialogState(() => selectedImage = imgUrl),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            width: 100,
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: isSelected ? const Color(0xFF1E3C72) : Colors.transparent,
-                                width: 3,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              image: DecorationImage(
-                                image: NetworkImage(imgUrl),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: _presetIllustrations.entries.map((entry) {
+                      final isSelected = selectedPreset == entry.key && galleryImagePath == null;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() {
+                          selectedPreset = entry.key;
+                          galleryImagePath = null;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF1E3C72).withOpacity(0.3) : Colors.transparent,
+                            border: Border.all(color: isSelected ? const Color(0xFF1E3C72) : Colors.grey.shade400, width: 2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        );
-                      },
-                    ),
+                          child: Icon(entry.value, size: 32, color: isSelected ? Colors.blueAccent : Colors.grey),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+                    onPressed: () async {
+                      final ImagePicker picker = ImagePicker();
+                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                      if (image != null) {
+                        setDialogState(() {
+                          galleryImagePath = image.path;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.photo_library),
+                    label: Text(galleryImagePath == null ? 'Wybierz zdjęcie z galerii' : 'Zdjęcie wybrano ✔'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
                     onPressed: () {
+                      final finalImg = galleryImagePath ?? selectedPreset;
                       setState(() {
-                        _cars[index] = CarItem(name: car.name, imagePath: selectedImage);
+                        _cars[index] = CarItem(name: car.name, imagePath: finalImg);
                       });
                       _saveCars();
                       Navigator.pop(context);
@@ -466,6 +487,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 }
 
+                Widget imageWidget;
+                if (_presetIllustrations.containsKey(car.imagePath)) {
+                  imageWidget = Container(
+                    color: const Color(0xFF1E3C72).withOpacity(0.8),
+                    child: Center(
+                      child: Icon(_presetIllustrations[car.imagePath], size: 70, color: Colors.white),
+                    ),
+                  );
+                } else {
+                  imageWidget = Image.file(
+                    File(car.imagePath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: const Color(0xFF1E3C72),
+                      child: const Icon(Icons.directions_car, size: 70, color: Colors.white),
+                    ),
+                  );
+                }
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -476,7 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => CarDetailScreen(carName: car.name, carImageUrl: car.imagePath),
+                          builder: (context) => CarDetailScreen(carName: car.name, carImageUrl: car.imagePath, presetMap: _presetIllustrations),
                         ),
                       ).then((_) => _loadData());
                     },
@@ -488,14 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.network(
-                                car.imagePath,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: Colors.blueGrey,
-                                  child: const Icon(Icons.directions_car, size: 60, color: Colors.white),
-                                ),
-                              ),
+                              imageWidget,
                               Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -544,7 +577,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF1E3C72)),
+                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
                                     tooltip: 'Zmień grafikę auta',
                                     onPressed: () => _showEditCarImageDialog(index),
                                   ),
@@ -581,7 +614,8 @@ class _HomeScreenState extends State<HomeScreen> {
 class CarDetailScreen extends StatefulWidget {
   final String carName;
   final String carImageUrl;
-  const CarDetailScreen({super.key, required this.carName, required this.carImageUrl});
+  final Map<String, IconData> presetMap;
+  const CarDetailScreen({super.key, required this.carName, required this.carImageUrl, required this.presetMap});
 
   @override
   State<CarDetailScreen> createState() => _CarDetailScreenState();
@@ -680,6 +714,29 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 
+  Future<DateTime?> _pickPolishDate(DateTime initialDate) async {
+    return await showDatePicker(
+      context: context,
+      locale: const Locale('pl', 'PL'),
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF1E3C72),
+              onPrimary: Colors.white,
+              surface: Color(0xFF1E1E1E),
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+  }
+
   void _showAddTermDialog() {
     final descController = TextEditingController();
     DateTime? selectedDate;
@@ -732,13 +789,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
               const SizedBox(height: 12),
               InkWell(
                 onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    locale: const Locale('pl', 'PL'),
-                    initialDate: DateTime.now().add(const Duration(days: 30)),
-                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                    lastDate: DateTime.now().add(const Duration(days: 3650)),
-                  );
+                  final picked = await _pickPolishDate(DateTime.now().add(const Duration(days: 30)));
                   if (picked != null) {
                     setModalState(() => selectedDate = picked);
                   }
@@ -864,13 +915,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 const SizedBox(height: 12),
                 InkWell(
                   onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      locale: const Locale('pl', 'PL'),
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
+                    final picked = await _pickPolishDate(selectedDate);
                     if (picked != null) {
                       setModalState(() => selectedDate = picked);
                     }
@@ -928,6 +973,25 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Widget headerWidget;
+    if (widget.presetMap.containsKey(widget.carImageUrl)) {
+      headerWidget = Container(
+        color: const Color(0xFF1E3C72),
+        child: Center(
+          child: Icon(widget.presetMap[widget.carImageUrl], size: 90, color: Colors.white),
+        ),
+      );
+    } else {
+      headerWidget = Image.file(
+        File(widget.carImageUrl),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: const Color(0xFF1E3C72),
+          child: const Icon(Icons.directions_car, size: 90, color: Colors.white),
+        ),
+      );
+    }
+
     return Scaffold(
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -941,11 +1005,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    widget.carImageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey),
-                  ),
+                  headerWidget,
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
