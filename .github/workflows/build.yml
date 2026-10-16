@@ -28,9 +28,26 @@ jobs:
           git checkout pubspec.yaml
           git checkout android/app/src/main/AndroidManifest.xml || true
           
-          # Podmiana wersji Kotlina na nowszą (1.9.24), wymaganą przez wtyczkę powiadomień
+          # Podmiana wersji Kotlina na 1.9.24
           sed -i -E 's/id "org\.jetbrains\.kotlin\.android" version "[^"]+"/id "org.jetbrains.kotlin.android" version "1.9.24"/' android/settings.gradle || true
           sed -i -E "s/ext\.kotlin_version = '[^']+'/ext.kotlin_version = '1.9.24'/" android/build.gradle || true
+
+          # Włączenie Java Desugaring wymaganego przez bibliotekę powiadomień
+          python3 << 'EOF'
+          with open("android/app/build.gradle", "r") as f:
+              c = f.read()
+
+          c = c.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
+          c = c.replace("defaultConfig {", "defaultConfig {\n        multiDexEnabled true")
+
+          if "dependencies {" in c:
+              c = c.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'")
+          else:
+              c += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+
+          with open("android/app/build.gradle", "w") as f:
+              f.write(c)
+          EOF
 
       - name: Get dependencies
         run: flutter pub get
