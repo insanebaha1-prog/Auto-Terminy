@@ -25,7 +25,7 @@ jobs:
 
       - name: Prepare Android Scaffolding
         run: |
-          flutter create --project-name auto_terminy --platforms=android .
+          flutter create --project-name auto_termin --org com.autotermin.app --platforms=android .
           git checkout pubspec.yaml
 
           python3 << 'EOF'
@@ -40,7 +40,7 @@ jobs:
               with open(settings_path, "w") as f:
                   f.write(c)
 
-          # 2. Wlaczenie Core Library Desugaring w stabilnej wersji 1.2.2 oraz MultiDex
+          # 2. Wlaczenie Core Library Desugaring oraz MultiDex
           bg_path = "android/app/build.gradle"
           if os.path.exists(bg_path):
               with open(bg_path, "r") as f:
@@ -55,25 +55,32 @@ jobs:
               with open(bg_path, "w") as f:
                   f.write(bg)
 
-          # 3. Dodanie uprawnien systemowych do AndroidManifest.xml (w tym galeria i powiadomienia)
+          # 3. Zmiana etykiety (nazwy) aplikacji na pulpicie telefonu na AutoTermin
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           if os.path.exists(manifest_path):
               with open(manifest_path, "r") as f:
                   m = f.read()
+              m = m.replace('android:label="auto_termin"', 'android:label="AutoTermin"')
+              m = m.replace('android:label="@string/app_name"', 'android:label="AutoTermin"')
+              
               perms = """
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
               <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
               <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
               """
               if "POST_NOTIFICATIONS" not in m:
                   m = m.replace("<application", perms + "\n    <application")
               with open(manifest_path, "w") as f:
                   f.write(m)
 
-          print("Konfiguracja zakonczona sukcesem!")
+          # 4. Nadpisanie string.xml aby nazwa systemu Android zawsze brzmiała AutoTermin
+          strings_path = "android/app/src/main/res/values/strings.xml"
+          os.makedirs(os.path.dirname(strings_path), exist_ok=True)
+          with open(strings_path, "w") as f:
+              f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="app_name">AutoTermin</string>\n</resources>')
+
+          print("Konfiguracja nazwy zakonczona sukcesem!")
           EOF
 
       - name: Get dependencies
