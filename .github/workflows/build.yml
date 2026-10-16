@@ -20,7 +20,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
           channel: 'stable'
 
       - name: Create basic Android scaffolding
@@ -28,6 +27,10 @@ jobs:
           flutter create --project-name auto_terminy --platforms=android .
           git checkout pubspec.yaml
           git checkout android/app/src/main/AndroidManifest.xml || true
+          
+          # Podmiana wersji Kotlina na nowszą (1.9.24), wymaganą przez wtyczkę powiadomień
+          sed -i -E 's/id "org\.jetbrains\.kotlin\.android" version "[^"]+"/id "org.jetbrains.kotlin.android" version "1.9.24"/' android/settings.gradle || true
+          sed -i -E "s/ext\.kotlin_version = '[^']+'/ext.kotlin_version = '1.9.24'/" android/build.gradle || true
 
       - name: Get dependencies
         run: flutter pub get
