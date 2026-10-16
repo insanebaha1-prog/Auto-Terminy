@@ -35,7 +35,7 @@ Future<void> main() async {
 
 class CarItem {
   final String name;
-  final String imagePath; // Ścieżka pliku lub klucz gotowej grafiki wbudowanej
+  final String imagePath;
 
   CarItem({required this.name, required this.imagePath});
 
@@ -133,8 +133,7 @@ class AutoTerminApp extends StatefulWidget {
 }
 
 class _AutoTerminAppState extends State<AutoTerminApp> {
-  // Domyślnie ustawiony ciemny motyw
-  bool _isDarkMode = true;
+  bool _isDarkMode = true; // Domyślnie ciemny motyw
 
   void _toggleTheme() {
     setState(() {
@@ -994,7 +993,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     return Scaffold(
       body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        headerSlierBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
@@ -1136,7 +1135,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 
-  Widget _buildRepairsView() {
+  Widget _buildRespairsView() { // (lub _buildRepairsView)
     if (_repairs.isEmpty) {
       return const Center(child: Text('Brak zarejestrowanych napraw dla tego auta', style: TextStyle(color: Colors.grey)));
     }
@@ -1146,44 +1145,4 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       itemBuilder: (ctx, i) {
         final item = _repairs[i];
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('${item.cost.toStringAsFixed(2)} PLN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
-                  ],
-                ),
-                if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text('${item.workshop.isNotEmpty ? "Warsztat: ${item.workshop}" : ""} ${item.mileage.isNotEmpty ? "• ${item.mileage}" : ""}',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                ],
-                const Divider(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () async {
-                        setState(() => _repairs.removeAt(i));
-                        await _saveAll();
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
+          margin: theEnd...
