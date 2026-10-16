@@ -31,16 +31,28 @@ jobs:
           python3 << 'EOF'
           import os, re
 
-          # Kotlin version
+          # 1. Wymuszenie wersji Kotlina 1.9.24 w android/settings.gradle
           settings_path = "android/settings.gradle"
           if os.path.exists(settings_path):
               with open(settings_path, "r") as f:
                   c = f.read()
-              c = re.sub(r'id "org\.jetbrains\.kotlin\.android" version "[^"]+"', 'id "org.jetbrains.kotlin.android" version "1.9.24"', c)
+              if 'id "org.jetbrains.kotlin.android"' in c:
+                  c = re.sub(r'id "org\.jetbrains\.kotlin\.android" version "[^"]+"', 'id "org.jetbrains.kotlin.android" version "1.9.24"', c)
+              else:
+                  c = c.replace("plugins {", 'plugins {\n    id "org.jetbrains.kotlin.android" version "1.9.24" apply false')
               with open(settings_path, "w") as f:
                   f.write(c)
 
-          # Desugaring & MultiDex
+          # 2. Poprawka dla starszych/innych plikow budowania (build.gradle)
+          build_gradle_path = "android/build.gradle"
+          if os.path.exists(build_gradle_path):
+              with open(build_gradle_path, "r") as f:
+                  bg_root = f.read()
+              bg_root = re.sub(r"kotlin_version = '[^']+'", "kotlin_version = '1.9.24'", bg_root)
+              with open(build_gradle_path, "w") as f:
+                  f.write(bg_root)
+
+          # 3. Wlaczenie Core Library Desugaring oraz MultiDex w app/build.gradle
           bg_path = "android/app/build.gradle"
           if os.path.exists(bg_path):
               with open(bg_path, "r") as f:
@@ -55,7 +67,7 @@ jobs:
               with open(bg_path, "w") as f:
                   f.write(bg)
 
-          # Permissions for gallery and notifications
+          # 4. Uprawnienia i nazwa aplikacji w AndroidManifest.xml
           manifest_path = "android/app/src/main/AndroidManifest.xml"
           if os.path.exists(manifest_path):
               with open(manifest_path, "r") as f:
@@ -76,12 +88,13 @@ jobs:
               with open(manifest_path, "w") as f:
                   f.write(m)
 
+          # 5. strings.xml dla Androida
           strings_path = "android/app/src/main/res/values/strings.xml"
           os.makedirs(os.path.dirname(strings_path), exist_ok=True)
           with open(strings_path, "w") as f:
               f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="app_name">AutoTermin</string>\n</resources>')
 
-          print("Konfiguracja zakonczona sukcesem!")
+          print("Konfiguracja Kotlina i Gradle zakonczona sukcesem!")
           EOF
 
       - name: Get dependencies
