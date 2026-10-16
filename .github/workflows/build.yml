@@ -20,33 +20,57 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Create basic Android scaffolding
+      - name: Prepare Android Scaffolding
         run: |
           flutter create --project-name auto_terminy --platforms=android .
           git checkout pubspec.yaml
-          git checkout android/app/src/main/AndroidManifest.xml || true
-          
-          # Podmiana wersji Kotlina na 1.9.24
-          sed -i -E 's/id "org\.jetbrains\.kotlin\.android" version "[^"]+"/id "org.jetbrains.kotlin.android" version "1.9.24"/' android/settings.gradle || true
-          sed -i -E "s/ext\.kotlin_version = '[^']+'/ext.kotlin_version = '1.9.24'/" android/build.gradle || true
 
-          # Włączenie Java Desugaring wymaganego przez bibliotekę powiadomień
           python3 << 'EOF'
-          with open("android/app/build.gradle", "r") as f:
-              c = f.read()
+          import os, re
 
-          c = c.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
-          c = c.replace("defaultConfig {", "defaultConfig {\n        multiDexEnabled true")
+          # 1. Aktualizacja wersji wtyczki Kotlin do 1.9.24
+          settings_path = "android/settings.gradle"
+          if os.path.exists(settings_path):
+              with open(settings_path, "r") as f:
+                  c = f.read()
+              c = re.sub(r'id "org\.jetbrains\.kotlin\.android" version "[^"]+"', 'id "org.jetbrains.kotlin.android" version "1.9.24"', c)
+              with open(settings_path, "w") as f:
+                  f.write(c)
 
-          if "dependencies {" in c:
-              c = c.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'")
-          else:
-              c += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+          # 2. Wlaczenie Core Library Desugaring wymaganego przez notyfikacje
+          bg_path = "android/app/build.gradle"
+          if os.path.exists(bg_path):
+              with open(bg_path, "r") as f:
+                  bg = f.read()
+              if "coreLibraryDesugaring" not in bg:
+                  bg = bg.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
+                  if "dependencies {" in bg:
+                      bg = bg.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'")
+                  else:
+                      bg += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+              with open(bg_path, "w") as f:
+                  f.write(bg)
 
-          with open("android/app/build.gradle", "w") as f:
-              f.write(c)
+          # 3. Dodanie uprawnien systemowych do AndroidManifest.xml
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          if os.path.exists(manifest_path):
+              with open(manifest_path, "r") as f:
+                  m = f.read()
+              perms = """
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+              """
+              if "POST_NOTIFICATIONS" not in m:
+                  m = m.replace("<application", perms + "\n    <application")
+              with open(manifest_path, "w") as f:
+                  f.write(m)
+
+          print("Konfiguracja zakonczona sukcesem!")
           EOF
 
       - name: Get dependencies
