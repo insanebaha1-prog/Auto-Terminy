@@ -41,7 +41,7 @@ class CarItem {
 
   factory CarItem.fromMap(Map<String, dynamic> map) => CarItem(
         name: map['name'] ?? '',
-        imagePath: map['imagePath'] ?? '',
+        imagePath: map['imagePath'] ?? 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80',
       );
 }
 
@@ -188,17 +188,11 @@ class _HomeScreenState extends State<HomeScreen> {
   List<RepairItem> _repairs = [];
   List<CarItem> _cars = [];
 
-  final List<String> _popularCars = [
-    'Nissan Qashqai (2018–2021)',
-    'Skoda Octavia (2017–2020)',
-    'Volkswagen Golf (2016–2019)',
-    'Toyota Corolla (2019–2023)',
-    'Ford Focus (2018–2021)',
-    'Kia Sportage (2016–2021)',
-    'Hyundai Tucson (2017–2020)',
-    'Audi A4 (2016–2020)',
-    'BMW Seria 3 (2017–2021)',
-    'Renault Megane (2016–2020)',
+  final List<String> _carIllustrations = [
+    'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80', // SUV
+    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80', // Sport / Hatchback
+    'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80', // Sedan / Premium
+    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80', // Klasyk / Nowoczesne
   ];
 
   @override
@@ -236,28 +230,15 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setStringList('saved_cars_objects', listJson);
   }
 
-  String _getDefaultCarImageUrl(String carName) {
-    final name = carName.toLowerCase();
-    if (name.contains('qashqai') || name.contains('sportage') || name.contains('tucson')) {
-      return 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80'; // SUV
-    } else if (name.contains('golf') || name.contains('megane') || name.contains('focus')) {
-      return 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80'; // Hatchback
-    } else if (name.contains('audi') || name.contains('bmw') || name.contains('skoda') || name.contains('corolla')) {
-      return 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80'; // Sedan
-    }
-    return 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80'; // Domyślne
-  }
-
   void _showAddCarDialog() {
-    String selectedPopularCar = _popularCars.first;
     final customCarController = TextEditingController();
-    final urlController = TextEditingController();
+    String selectedImage = _carIllustrations.first;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Dodaj pojazd'),
+          title: const Text('Dodaj pojazd (wpisz ręcznie)'),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -265,75 +246,60 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Wybierz z popularnych w Polsce:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: selectedPopularCar,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    items: _popularCars.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: (val) => setDialogState(() => selectedPopularCar = val!),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
-                    onPressed: () {
-                      if (!_cars.any((c) => c.name == selectedPopularCar)) {
-                        setState(() {
-                          _cars.add(CarItem(
-                            name: selectedPopularCar,
-                            imagePath: _getDefaultCarImageUrl(selectedPopularCar),
-                          ));
-                        });
-                        _saveCars();
-                        Navigator.pop(context);
-                      }
-                    },
-                    icon: const Icon(Icons.add_circle_outline),
-                    label: const Text('Dodaj to auto'),
-                  ),
-                  const Divider(height: 24),
-                  const Text('Lub wpisz własne auto:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 6),
                   TextField(
                     controller: customCarController,
                     decoration: InputDecoration(
-                      labelText: 'Np. Opel Astra 2015',
+                      labelText: 'Nazwa auta / model (np. Nissan Qashqai)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: urlController,
-                    decoration: InputDecoration(
-                      labelText: 'Link URL zdjęcia (opcjonalnie)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  const SizedBox(height: 16),
+                  const Text('Wybierz gotową ilustrację auta:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 80,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _carIllustrations.length,
+                      itemBuilder: (context, idx) {
+                        final imgUrl = _carIllustrations[idx];
+                        final isSelected = selectedImage == imgUrl;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => selectedImage = imgUrl),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            width: 100,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF1E3C72) : Colors.transparent,
+                                width: 3,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              image: DecorationImage(
+                                image: NetworkImage(imgUrl),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
                     onPressed: () {
                       final val = customCarController.text.trim();
                       if (val.isNotEmpty && !_cars.any((c) => c.name == val)) {
-                        String img = _getDefaultCarImageUrl(val);
-                        if (urlController.text.trim().isNotEmpty) {
-                          img = urlController.text.trim();
-                        }
                         setState(() {
-                          _cars.add(CarItem(name: val, imagePath: img));
+                          _cars.add(CarItem(name: val, imagePath: selectedImage));
                         });
                         _saveCars();
                         Navigator.pop(context);
                       }
                     },
                     icon: const Icon(Icons.add),
-                    label: const Text('Dodaj własne auto'),
+                    label: const Text('Zapisz auto'),
                   ),
                 ],
               ),
@@ -343,6 +309,81 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Zamknij'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditCarImageDialog(int index) {
+    final car = _cars[index];
+    String selectedImage = car.imagePath;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Zmień grafikę: ${car.name}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Wybierz gotową ilustrację:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 80,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _carIllustrations.length,
+                      itemBuilder: (context, idx) {
+                        final imgUrl = _carIllustrations[idx];
+                        final isSelected = selectedImage == imgUrl;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => selectedImage = imgUrl),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            width: 100,
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF1E3C72) : Colors.transparent,
+                                width: 3,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              image: DecorationImage(
+                                image: NetworkImage(imgUrl),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
+                    onPressed: () {
+                      setState(() {
+                        _cars[index] = CarItem(name: car.name, imagePath: selectedImage);
+                      });
+                      _saveCars();
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Zaktualizuj grafikę'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Anuluj'),
             ),
           ],
         ),
@@ -417,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     infoText = '${nextTerm.title}: Dzisiaj!';
                     infoColor = Colors.red;
                   } else {
-                    infoText = '${nextTerm.title}: za $days dni (${DateFormat('dd.MM.yyyy').format(nextTerm.dueDate)})';
+                    infoText = '${nextTerm.title}: za $days dni (${DateFormat('dd.MM.yyyy', 'pl_PL').format(nextTerm.dueDate)})';
                     infoColor = days <= 14 ? Colors.orange : Colors.green;
                   }
                   if (carTerms.length > 1) {
@@ -481,7 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -500,12 +541,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () {
-                                  setState(() => _cars.removeAt(index));
-                                  _saveCars();
-                                },
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF1E3C72)),
+                                    tooltip: 'Zmień grafikę auta',
+                                    onPressed: () => _showEditCarImageDialog(index),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    tooltip: 'Usuń auto',
+                                    onPressed: () {
+                                      setState(() => _cars.removeAt(index));
+                                      _saveCars();
+                                    },
+                                  ),
+                                ],
                               ),
                             ],
                           ),
