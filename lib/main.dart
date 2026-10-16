@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,7 +33,7 @@ Future<void> main() async {
 
 class CarItem {
   final String name;
-  final String imagePath; // Może być URL lub ścieżka do pliku z galerii
+  final String imagePath;
 
   CarItem({required this.name, required this.imagePath});
 
@@ -215,12 +213,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<String>? savedCarsJson = prefs.getStringList('saved_cars_objects');
     if (savedCarsJson != null) {
       _cars = savedCarsJson.map((e) => CarItem.fromMap(jsonDecode(e))).toList();
-    } else {
-      // Kompatibilność wsteczna ze zwykłą listą tekstową
-      final List<String>? oldCars = prefs.getStringList('saved_cars');
-      if (oldCars != null) {
-        _cars = oldCars.map((name) => CarItem(name: name, imagePath: _getDefaultCarImageUrl(name))).toList();
-      }
     }
 
     final String? termsJson = prefs.getString('saved_terms');
@@ -260,7 +252,6 @@ class _HomeScreenState extends State<HomeScreen> {
     String selectedPopularCar = _popularCars.first;
     final customCarController = TextEditingController();
     final urlController = TextEditingController();
-    String? pickedGalleryImagePath;
 
     showDialog(
       context: context,
@@ -294,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {
                           _cars.add(CarItem(
                             name: selectedPopularCar,
-                            imagePath: pickedGalleryImagePath ?? _getDefaultCarImageUrl(selectedPopularCar),
+                            imagePath: _getDefaultCarImageUrl(selectedPopularCar),
                           ));
                         });
                         _saveCars();
@@ -324,21 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final ImagePicker picker = ImagePicker();
-                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                      if (image != null) {
-                        setDialogState(() {
-                          pickedGalleryImagePath = image.path;
-                        });
-                      }
-                    },
-                    icon: const Icon(Icons.photo_library),
-                    label: Text(pickedGalleryImagePath == null ? 'Wybierz zdjęcie z galerii' : 'Zdjęcie wybrano ✔'),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
                     onPressed: () {
@@ -347,8 +324,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         String img = _getDefaultCarImageUrl(val);
                         if (urlController.text.trim().isNotEmpty) {
                           img = urlController.text.trim();
-                        } else if (pickedGalleryImagePath != null) {
-                          img = pickedGalleryImagePath!;
                         }
                         setState(() {
                           _cars.add(CarItem(name: val, imagePath: img));
@@ -450,21 +425,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 }
 
-                Widget imageWidget;
-                if (car.imagePath.startsWith('http')) {
-                  imageWidget = Image.network(
-                    car.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey, child: const Icon(Icons.directions_car, size: 60, color: Colors.white)),
-                  );
-                } else {
-                  imageWidget = Image.file(
-                    File(car.imagePath),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey, child: const Icon(Icons.directions_car, size: 60, color: Colors.white)),
-                  );
-                }
-
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -487,7 +447,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              imageWidget,
+                              Image.network(
+                                car.imagePath,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: Colors.blueGrey,
+                                  child: const Icon(Icons.directions_car, size: 60, color: Colors.white),
+                                ),
+                              ),
                               Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
@@ -910,21 +877,6 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Widget headerImage;
-    if (widget.carImageUrl.startsWith('http')) {
-      headerImage = Image.network(
-        widget.carImageUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey),
-      );
-    } else {
-      headerImage = Image.file(
-        File(widget.carImageUrl),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey),
-      );
-    }
-
     return Scaffold(
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -938,7 +890,11 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  headerImage,
+                  Image.network(
+                    widget.carImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(color: Colors.blueGrey),
+                  ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
