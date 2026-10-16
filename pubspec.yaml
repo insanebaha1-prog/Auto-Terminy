@@ -1,10 +1,10 @@
-name: auto_terminy
-description: "Aplikacja do przypomnień o terminach pojazdu"
-publish_to: "none"
+name: auto_termin
+description: "Aplikacja AutoTermin do zarządzania terminami i naprawami pojazdów."
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -14,6 +14,11 @@ dependencies:
   shared_preferences: ^2.3.2
   timezone: ^0.9.4
   image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
