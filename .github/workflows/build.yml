@@ -23,12 +23,30 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Build Clean APK
+      - name: Build APK with Fixed Kotlin Version
         run: |
-          # Usunięcie folderu android, aby Flutter stworzył fabrycznie czysty i zgodny projekt
+          # Usunięcie starego folderu android i wygenerowanie świeżego projektu
           rm -rf android
           flutter create --project-name auto_termin --org com.autotermin.app --platforms=android .
+
+          # Dokładna, bezpieczna podmiana wersji wtyczki Kotlin w pliku settings.gradle
+          python3 -c '
+          path = "android/settings.gradle"
+          with open(path, "r") as f:
+              lines = f.readlines()
           
+          new_lines = []
+          for line in lines:
+              if "org.jetbrains.kotlin.android" in line:
+                  # Podmieniamy całą linię na poprawną deklarację wtyczki z wersją 1.9.23
+                  new_lines.append("    id \"org.jetbrains.kotlin.android\" version \"1.9.23\" apply false\n")
+              else:
+                  new_lines.append(line)
+                  
+          with open(path, "w") as f:
+              f.writelines(new_lines)
+          '
+
           flutter pub get
           flutter build apk --release --no-shrink
 
