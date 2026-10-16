@@ -23,38 +23,11 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Recreate Android Project Structure & Build
+      - name: Build Release APK
         run: |
-          # Zachowujemy lib i pubspec, a resztę struktury Androida generujemy na nowo w najnowszym standardzie
+          # Tworzymy domyślną, czystą strukturę Androida bez zewnętrznych modyfikacji wersji w locie
           flutter create --project-name auto_termin --org com.autotermin.app --platforms=android .
           
-          # Podmiana wersji Kotlina w android/settings.gradle na poprawną 1.9.24
-          python3 -c '
-          import os
-          path = "android/settings.gradle"
-          if os.path.exists(path):
-              with open(path, "r") as f:
-                  content = f.read()
-              if "org.jetbrains.kotlin.android" in content:
-                  import re
-                  content = re.sub(r"version \"[^\"]+\"", "version \"1.9.24\"", content)
-              with open(path, "w") as f:
-                  f.write(content)
-          '
-
-          # Włączenie MultiDex w app/build.gradle
-          python3 -c '
-          import os
-          path = "android/app/build.gradle"
-          if os.path.exists(path):
-              with open(path, "r") as f:
-                  content = f.read()
-              if "multiDexEnabled" not in content:
-                  content = content.replace("defaultConfig {", "defaultConfig {\n        multiDexEnabled true")
-              with open(path, "w") as f:
-                  f.write(content)
-          '
-
           flutter pub get
           flutter build apk --release --no-shrink
 
