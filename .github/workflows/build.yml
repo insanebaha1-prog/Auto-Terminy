@@ -40,17 +40,18 @@ jobs:
               with open(settings_path, "w") as f:
                   f.write(c)
 
-          # 2. Wlaczenie Core Library Desugaring wymaganego przez notyfikacje
+          # 2. Wlaczenie Core Library Desugaring w stabilnej wersji 1.2.2 oraz MultiDex
           bg_path = "android/app/build.gradle"
           if os.path.exists(bg_path):
               with open(bg_path, "r") as f:
                   bg = f.read()
               if "coreLibraryDesugaring" not in bg:
                   bg = bg.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
+                  bg = bg.replace("defaultConfig {", "defaultConfig {\n        multiDexEnabled true")
                   if "dependencies {" in bg:
-                      bg = bg.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'")
+                      bg = bg.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.2'")
                   else:
-                      bg += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+                      bg += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.2.2'\n}\n"
               with open(bg_path, "w") as f:
                   f.write(bg)
 
@@ -77,7 +78,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-shrink
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
