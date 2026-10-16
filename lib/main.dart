@@ -993,7 +993,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     return Scaffold(
       body: NestedScrollView(
-        headerSlierBuilder: (context, innerBoxIsScrolled) => [
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
@@ -1135,7 +1135,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 
-  Widget _buildRespairsView() { // (lub _buildRepairsView)
+  Widget _buildRepairsView() {
     if (_repairs.isEmpty) {
       return const Center(child: Text('Brak zarejestrowanych napraw dla tego auta', style: TextStyle(color: Colors.grey)));
     }
@@ -1145,4 +1145,44 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       itemBuilder: (ctx, i) {
         final item = _repairs[i];
         return Card(
-          margin: theEnd...
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('${item.cost.toStringAsFixed(2)} PLN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                  ],
+                ),
+                if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text('${item.workshop.isNotEmpty ? "Warsztat: ${item.workshop}" : ""} ${item.mileage.isNotEmpty ? "• ${item.mileage}" : ""}',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                ],
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () async {
+                        setState(() => _repairs.removeAt(i));
+                        await _saveAll();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
