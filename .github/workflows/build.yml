@@ -25,8 +25,9 @@ jobs:
 
       - name: Create basic Android scaffolding
         run: |
-          flutter create --platforms=android .
-          git checkout android/app/src/main/AndroidManifest.xml
+          flutter create --project-name auto_terminy --platforms=android .
+          git checkout pubspec.yaml
+          git checkout android/app/src/main/AndroidManifest.xml || true
 
       - name: Get dependencies
         run: flutter pub get
