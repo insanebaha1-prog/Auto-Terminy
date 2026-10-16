@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
-// ignore: depend_on_referenced_packages
-import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -14,7 +12,6 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
-  await initializeDateFormatting('pl_PL', null);
 
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -57,7 +54,7 @@ class TermItem {
 
   factory TermItem.fromMap(Map<String, dynamic> map) => TermItem(
         id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        carName: map['carName'] ?? 'Domyślne auto',
+        carName: map['carName'] ?? '',
         title: map['title'] ?? '',
         description: map['description'] ?? '',
         dueDate: DateTime.parse(map['dueDate']),
@@ -95,7 +92,7 @@ class RepairItem {
 
   factory RepairItem.fromMap(Map<String, dynamic> map) => RepairItem(
         id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        carName: map['carName'] ?? 'Domyślne auto',
+        carName: map['carName'] ?? '',
         title: map['title'] ?? 'Naprawa',
         cost: (map['cost'] ?? 0.0).toDouble(),
         mileage: map['mileage'] ?? '',
@@ -171,11 +168,22 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
   List<TermItem> _terms = [];
   List<RepairItem> _repairs = [];
-  List<String> _cars = ['Nissan Qashqai'];
-  String? _selectedCarFilter;
+  List<String> _cars = [];
+
+  final List<String> _popularCars = [
+    'Nissan Qashqai (2018–2021)',
+    'Skoda Octavia (2017–2020)',
+    'Volkswagen Golf (2016–2019)',
+    'Toyota Corolla (2019–2023)',
+    'Ford Focus (2018–2021)',
+    'Kia Sportage (2016–2021)',
+    'Hyundai Tucson (2017–2020)',
+    'Audi A4 (2016–2020)',
+    'BMW Seria 3 (2017–2021)',
+    'Renault Megane (2016–2020)',
+  ];
 
   final Map<String, CategoryStyle> _termCategories = {
     'Badanie techniczne': CategoryStyle(Icons.fact_check_rounded, const Color(0xFF1976D2)),
@@ -195,26 +203,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Cars
     final List<String>? savedCars = prefs.getStringList('saved_cars');
-    if (savedCars != null && savedCars.isNotEmpty) {
+    if (savedCars != null) {
       _cars = savedCars;
     }
 
-    // Terms
     final String? termsJson = prefs.getString('saved_terms');
     if (termsJson != null) {
       final List<dynamic> decoded = jsonDecode(termsJson);
       _terms = decoded.map((e) => TermItem.fromMap(e)).toList();
-      _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
     }
 
-    // Repairs
     final String? repairsJson = prefs.getString('saved_repairs');
     if (repairsJson != null) {
       final List<dynamic> decoded = jsonDecode(repairsJson);
       _repairs = decoded.map((e) => RepairItem.fromMap(e)).toList();
-      _repairs.sort((a, b) => b.date.compareTo(a.date));
     }
 
     setState(() {});
@@ -237,6 +240,271 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setString('saved_repairs', encoded);
   }
 
+  void _showAddCarDialog() {
+    String selectedPopularCar = _popularCars.first;
+    final customCarController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Dodaj pojazd'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Wybierz z popularnych w Polsce:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedPopularCar,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: _popularCars.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
+                    onChanged: (val) => setDialogState(() => selectedPopularCar = val!),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
+                    onPressed: () {
+                      if (!_cars.contains(selectedPopularCar)) {
+                        setState(() => _cars.add(selectedPopularCar));
+                        _saveCars();
+                        setDialogState(() {});
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Dodaj to auto'),
+                  ),
+                  const Divider(height: 24),
+                  const Text('Lub wpisz własne auto:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: customCarController,
+                    decoration: InputDecoration(
+                      labelText: 'Np. Opel Astra 2015',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+                    onPressed: () {
+                      final val = customCarController.text.trim();
+                      if (val.isNotEmpty && !_cars.contains(val)) {
+                        setState(() => _cars.add(val));
+                        _saveCars();
+                        Navigator.pop(context);
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Dodaj własne auto'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Zamknij'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mój Garaż', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E3C72),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onToggleTheme,
+            tooltip: 'Przełącz motyw',
+          ),
+        ],
+      ),
+      body: _cars.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.directions_car_outlined, size: 90, color: Colors.blueGrey.shade300),
+                    const SizedBox(height: 16),
+                    const Text('Brak pojazdów w garażu', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text('Kliknij przycisk [+] poniżej, aby dodać swoje pierwsze auto.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _cars.length,
+              itemBuilder: (context, index) {
+                final carName = _cars[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 3,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CarDetailScreen(carName: carName),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                          child: Container(
+                            height: 140,
+                            color: Colors.blueGrey.shade100,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Icon(Icons.directions_car_rounded, size: 70, color: Colors.blueGrey.shade400),
+                                Positioned(
+                                  bottom: 10,
+                                  left: 12,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Text('Pojazd osobisty', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(carName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () {
+                                  setState(() => _cars.removeAt(index));
+                                  _saveCars();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddCarDialog,
+        backgroundColor: const Color(0xFF1E3C72),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Dodaj auto', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
+
+class CarDetailScreen extends StatefulWidget {
+  final String carName;
+  const CarDetailScreen({super.key, required this.carName});
+
+  @override
+  State<CarDetailScreen> createState() => _CarDetailScreenState();
+}
+
+class _CarDetailScreenState extends State<CarDetailScreen> {
+  int _currentIndex = 0;
+  List<TermItem> _terms = [];
+  List<RepairItem> _repairs = [];
+
+  final Map<String, CategoryStyle> _termCategories = {
+    'Badanie techniczne': CategoryStyle(Icons.fact_check_rounded, const Color(0xFF1976D2)),
+    'Polisa OC/AC': CategoryStyle(Icons.shield_rounded, const Color(0xFF512DA8)),
+    'Wymiana oleju/filtrów': CategoryStyle(Icons.build_circle_rounded, const Color(0xFFE65100)),
+    'Wymiana opon': CategoryStyle(Icons.album_rounded, const Color(0xFF00796B)),
+    'Klimatyzacja / Serwis': CategoryStyle(Icons.ac_unit_rounded, const Color(0xFF0288D1)),
+    'Inne': CategoryStyle(Icons.directions_car_filled_rounded, const Color(0xFF455A64)),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final String? termsJson = prefs.getString('saved_terms');
+    if (termsJson != null) {
+      final List<dynamic> decoded = jsonDecode(termsJson);
+      _terms = decoded.map((e) => TermItem.fromMap(e)).where((t) => t.carName == widget.carName).toList();
+      _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    }
+
+    final String? repairsJson = prefs.getString('saved_repairs');
+    if (repairsJson != null) {
+      final List<dynamic> decoded = jsonDecode(repairsJson);
+      _repairs = decoded.map((e) => RepairItem.fromMap(e)).where((r) => r.carName == widget.carName).toList();
+      _repairs.sort((a, b) => b.date.compareTo(a.date));
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _saveAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Global terms
+    final String? termsJson = prefs.getString('saved_terms');
+    List<TermItem> allTerms = [];
+    if (termsJson != null) {
+      allTerms = (jsonDecode(termsJson) as List).map((e) => TermItem.fromMap(e)).where((t) => t.carName != widget.carName).toList();
+    }
+    allTerms.addAll(_terms);
+    await prefs.setString('saved_terms', jsonEncode(allTerms.map((e) => e.toMap()).toList()));
+
+    // Global repairs
+    final String? repairsJson = prefs.getString('saved_repairs');
+    List<RepairItem> allRepairs = [];
+    if (repairsJson != null) {
+      allRepairs = (jsonDecode(repairsJson) as List).map((e) => RepairItem.fromMap(e)).where((r) => r.carName != widget.carName).toList();
+    }
+    allRepairs.addAll(_repairs);
+    await prefs.setString('saved_repairs', jsonEncode(allRepairs.map((e) => e.toMap()).toList()));
+  }
+
   int _calculateDaysLeft(DateTime dueDate) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -252,103 +520,21 @@ class _HomeScreenState extends State<HomeScreen> {
       reminderDate = DateTime.now().add(const Duration(seconds: 15));
     }
 
-    final int notificationId = item.id.hashCode;
-
     await flutterLocalNotificationsPlugin.zonedSchedule(
-      notificationId,
-      'Zbliża się termin: ${item.title} (${item.carName})',
-      'Upływa: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)} ${item.description.isNotEmpty ? "(${item.description})" : ""}',
+      item.id.hashCode,
+      'Zbliża się termin: ${item.title} (${widget.carName})',
+      'Upływa: ${DateFormat('dd.MM.yyyy').format(item.dueDate)} ${item.description.isNotEmpty ? "(${item.description})" : ""}',
       tz.TZDateTime.from(reminderDate, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'przypominajka_channel',
           'Przypomnienia o terminach',
-          channelDescription: 'Powiadomienia o przeglądach, OC i serwisie',
           importance: Importance.max,
           priority: Priority.high,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-  }
-
-  void _showManageCarsDialog() {
-    final carController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Zarządzaj pojazdami'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: carController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nowe auto (np. Skoda Octavia)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    if (carController.text.trim().isNotEmpty) {
-                      setState(() {
-                        _cars.add(carController.text.trim());
-                      });
-                      _saveCars();
-                      setDialogState(() {
-                        carController.clear();
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Dodaj pojazd'),
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const Text('Twoje auta:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 150),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _cars.length,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        dense: true,
-                        title: Text(_cars[index]),
-                        trailing: _cars.length > 1
-                            ? IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  setState(() {
-                                    _cars.removeAt(index);
-                                  });
-                                  _saveCars();
-                                  setDialogState(() {});
-                                },
-                              )
-                            : null,
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Zamknij'),
-            ),
-          ],
-        ),
-      ),
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -356,20 +542,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final descController = TextEditingController();
     DateTime? selectedDate;
     String selectedCategory = _termCategories.keys.first;
-    String selectedCar = _cars.first;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            top: 24,
-            left: 20,
-            right: 20,
+            top: 24, left: 20, right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: Column(
@@ -378,16 +559,6 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text('Nowy termin', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedCar,
-                decoration: InputDecoration(
-                  labelText: 'Pojazd',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                items: _cars.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (val) => setModalState(() => selectedCar = val!),
-              ),
-              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: selectedCategory,
                 decoration: InputDecoration(
@@ -412,7 +583,7 @@ class _HomeScreenState extends State<HomeScreen> {
               TextField(
                 controller: descController,
                 decoration: InputDecoration(
-                  labelText: 'Dodatkowy opis (np. PZU, warsztat)',
+                  labelText: 'Dodatkowy opis',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
@@ -421,7 +592,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
-                    locale: const Locale('pl', 'PL'),
                     initialDate: DateTime.now().add(const Duration(days: 30)),
                     firstDate: DateTime.now().subtract(const Duration(days: 30)),
                     lastDate: DateTime.now().add(const Duration(days: 3650)),
@@ -443,10 +613,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         selectedDate == null
                             ? 'Wybierz datę ważności'
-                            : 'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate!)}',
-                        style: TextStyle(
-                          fontWeight: selectedDate == null ? FontWeight.normal : FontWeight.bold,
-                        ),
+                            : 'Data: ${DateFormat('dd.MM.yyyy').format(selectedDate!)}',
+                        style: TextStyle(fontWeight: selectedDate == null ? FontWeight.normal : FontWeight.bold),
                       ),
                     ],
                   ),
@@ -464,7 +632,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (selectedDate == null) return;
                   final newItem = TermItem(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    carName: selectedCar,
+                    carName: widget.carName,
                     title: selectedCategory,
                     description: descController.text.trim(),
                     dueDate: selectedDate!,
@@ -473,7 +641,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _terms.add(newItem);
                     _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
                   });
-                  await _saveTerms();
+                  await _saveAll();
                   await _scheduleNotification(newItem);
                   if (context.mounted) Navigator.pop(context);
                 },
@@ -492,20 +660,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final mileageController = TextEditingController();
     final workshopController = TextEditingController();
     DateTime selectedDate = DateTime.now();
-    String selectedCar = _cars.first;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            top: 24,
-            left: 20,
-            right: 20,
+            top: 24, left: 20, right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
@@ -515,16 +678,6 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const Text('Nowa naprawa / serwis', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedCar,
-                  decoration: InputDecoration(
-                    labelText: 'Pojazd',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  items: _cars.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (val) => setModalState(() => selectedCar = val!),
-                ),
-                const SizedBox(height: 12),
                 TextField(
                   controller: titleController,
                   decoration: InputDecoration(
@@ -550,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: TextField(
                         controller: mileageController,
                         decoration: InputDecoration(
-                          labelText: 'Przebieg (np. 185000 km)',
+                          labelText: 'Przebieg',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
@@ -570,7 +723,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      locale: const Locale('pl', 'PL'),
                       initialDate: selectedDate,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
@@ -589,8 +741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         const Icon(Icons.calendar_month),
                         const SizedBox(width: 12),
-                        Text('Data naprawy: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Data: ${DateFormat('dd.MM.yyyy').format(selectedDate)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -607,7 +758,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (titleController.text.trim().isEmpty) return;
                     final newRepair = RepairItem(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      carName: selectedCar,
+                      carName: widget.carName,
                       title: titleController.text.trim(),
                       cost: double.tryParse(costController.text.replaceAll(',', '.')) ?? 0.0,
                       mileage: mileageController.text.trim(),
@@ -618,7 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _repairs.add(newRepair);
                       _repairs.sort((a, b) => b.date.compareTo(a.date));
                     });
-                    await _saveRepairs();
+                    await _saveAll();
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Zapisz naprawę', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -633,73 +784,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<TermItem> filteredTerms = _selectedCarFilter == null
-        ? _terms
-        : _terms.where((t) => t.carName == _selectedCarFilter).toList();
-
-    List<RepairItem> filteredRepairs = _selectedCarFilter == null
-        ? _repairs
-        : _repairs.where((r) => r.carName == _selectedCarFilter).toList();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Przypominajka', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.carName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: widget.onToggleTheme,
-            tooltip: 'Przełącz motyw',
-          ),
-          IconButton(
-            icon: const Icon(Icons.directions_car),
-            onPressed: _showManageCarsDialog,
-            tooltip: 'Zarządzaj autami',
-          ),
-        ],
       ),
-      body: Column(
-        children: [
-          if (_cars.length > 1 || _selectedCarFilter != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Theme.of(context).cardColor,
-              child: Row(
-                children: [
-                  const Text('Filtruj auto: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(width: 8),
-                  DropdownButton<String?>(
-                    value: _selectedCarFilter,
-                    hint: const Text('Wszystkie auta'),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Wszystkie auta')),
-                      ..._cars.map((c) => DropdownMenuItem(value: c, child: Text(c))),
-                    ],
-                    onChanged: (val) => setState(() => _selectedCarFilter = val),
-                  ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: _currentIndex == 0
-                ? _buildTermsView(filteredTerms)
-                : _buildRepairsView(filteredRepairs),
-          ),
-        ],
-      ),
+      body: _currentIndex == 0 ? _buildTermsView() : _buildRepairsView(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.event_note_rounded),
-            label: 'Terminarz',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.build_rounded),
-            label: 'Naprawy',
-          ),
+          NavigationDestination(icon: Icon(Icons.event_note_rounded), label: 'Terminarz'),
+          NavigationDestination(icon: Icon(Icons.build_rounded), label: 'Naprawy'),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -712,28 +809,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTermsView(List<TermItem> items) {
-    if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.event_available_rounded, size: 80, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              const Text('Brak zaplanowanych terminów', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
-      );
+  Widget _buildTermsView() {
+    if (_terms.isEmpty) {
+      return const Center(child: Text('Brak zaplanowanych terminów dla tego auta', style: TextStyle(color: Colors.grey)));
     }
-
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-      itemCount: items.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: _terms.length,
       itemBuilder: (ctx, i) {
-        final item = items[i];
+        final item = _terms[i];
         final daysLeft = _calculateDaysLeft(item.dueDate);
         final style = _termCategories[item.title] ?? _termCategories['Inne']!;
 
@@ -747,14 +831,11 @@ class _HomeScreenState extends State<HomeScreen> {
           statusText = 'Dzisiaj!';
         } else if (daysLeft <= 14) {
           statusColor = Colors.redAccent.shade700;
-        } else if (daysLeft <= 30) {
-          statusColor = Colors.orange.shade800;
         }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -762,76 +843,54 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: style.color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(style.icon, color: style.color, size: 24),
-                    ),
+                    Icon(style.icon, color: style.color, size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          Text('🚗 ${item.carName}${item.description.isNotEmpty ? " • ${item.description}" : ""}',
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                          if (item.description.isNotEmpty)
+                            Text(item.description, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                         ],
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
                       child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.event, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate),
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                    Text('Data: ${DateFormat('dd.MM.yyyy').format(item.dueDate)}', style: const TextStyle(fontWeight: FontWeight.w600)),
                     Row(
                       children: [
                         TextButton.icon(
                           onPressed: () async {
                             final newDate = DateTime(item.dueDate.year + 1, item.dueDate.month, item.dueDate.day);
                             final updated = TermItem(
-                              id: item.id,
-                              carName: item.carName,
-                              title: item.title,
-                              description: item.description,
-                              dueDate: newDate,
+                              id: item.id, carName: item.carName, title: item.title, description: item.description, dueDate: newDate,
                             );
                             setState(() {
-                              final index = _terms.indexWhere((t) => t.id == item.id);
-                              if (index != -1) _terms[index] = updated;
+                              _terms[i] = updated;
                               _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
                             });
-                            await _saveTerms();
+                            await _saveAll();
                             await _scheduleNotification(updated);
                           },
                           icon: const Icon(Icons.update, size: 16),
                           label: const Text('+1 rok'),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
                           onPressed: () async {
                             await flutterLocalNotificationsPlugin.cancel(item.id.hashCode);
-                            setState(() => _terms.removeWhere((t) => t.id == item.id));
-                            await _saveTerms();
+                            setState(() => _terms.removeAt(i));
+                            await _saveAll();
                           },
                         ),
                       ],
@@ -846,32 +905,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRepairsView(List<RepairItem> items) {
-    if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.build_rounded, size: 80, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              const Text('Brak zarejestrowanych napraw', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ),
-      );
+  Widget _buildRepairsView() {
+    if (_repairs.isEmpty) {
+      return const Center(child: Text('Brak zarejestrowanych napraw dla tego auta', style: TextStyle(color: Colors.grey)));
     }
-
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-      itemCount: items.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: _repairs.length,
       itemBuilder: (ctx, i) {
-        final item = items[i];
+        final item = _repairs[i];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -880,44 +925,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                    Text('${item.cost.toStringAsFixed(2)} PLN',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('${item.cost.toStringAsFixed(2)} PLN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text('🚗 ${item.carName}', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                 if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      if (item.workshop.isNotEmpty) ...[
-                        const Icon(Icons.store, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(item.workshop, style: const TextStyle(fontSize: 13)),
-                        const SizedBox(width: 12),
-                      ],
-                      if (item.mileage.isNotEmpty) ...[
-                        const Icon(Icons.speed, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(item.mileage, style: const TextStyle(fontSize: 13)),
-                      ],
-                    ],
-                  ),
+                  Text('${item.workshop.isNotEmpty ? "Warsztat: ${item.workshop}" : ""} ${item.mileage.isNotEmpty ? "• ${item.mileage}" : ""}',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                 ],
                 const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date),
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    Text(DateFormat('dd.MM.yyyy').format(item.date), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
                       onPressed: () async {
-                        setState(() => _repairs.removeWhere((r) => r.id == item.id));
-                        await _saveRepairs();
+                        setState(() => _repairs.removeAt(i));
+                        await _saveAll();
                       },
                     ),
                   ],
