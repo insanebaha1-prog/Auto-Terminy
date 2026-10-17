@@ -858,10 +858,14 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 
-  void _showAddTermDialog() {
-    final descController = TextEditingController();
-    DateTime? selectedDate;
-    String selectedCategory = _termCategories.keys.first;
+  void _showAddEditTermDialog({TermItem? termToEdit}) {
+    final isEditing = termToEdit != null;
+    final descController = TextEditingController(text: isEditing ? termToEdit.description : '');
+    DateTime? selectedDate = isEditing ? termToEdit.dueDate : null;
+    String selectedCategory = isEditing ? termToEdit.title : _termCategories.keys.first;
+    if (!_termCategories.containsKey(selectedCategory)) {
+      selectedCategory = _termCategories.keys.first;
+    }
     String? errorText;
 
     showModalBottomSheet(
@@ -881,8 +885,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Nowy termin',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(isEditing ? 'Edytuj termin' : 'Nowy termin',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: selectedCategory,
@@ -976,24 +980,44 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                     });
                     return;
                   }
-                  final newItem = TermItem(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    carName: widget.carName,
-                    title: selectedCategory,
-                    description: descController.text.trim(),
-                    dueDate: selectedDate!,
-                  );
-                  setState(() {
-                    _terms.add(newItem);
-                    _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
-                  });
-                  Navigator.of(ctx).pop();
-                  await _saveAll();
-                  await _scheduleNotification(newItem);
+                  if (isEditing) {
+                    final index = _terms.indexWhere((t) => t.id == termToEdit.id);
+                    if (index != -1) {
+                      final updatedItem = TermItem(
+                        id: termToEdit.id,
+                        carName: widget.carName,
+                        title: selectedCategory,
+                        description: descController.text.trim(),
+                        dueDate: selectedDate!,
+                      );
+                      setState(() {
+                        _terms[index] = updatedItem;
+                        _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                      });
+                      Navigator.of(ctx).pop();
+                      await _saveAll();
+                      await _scheduleNotification(updatedItem);
+                    }
+                  } else {
+                    final newItem = TermItem(
+                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      carName: widget.carName,
+                      title: selectedCategory,
+                      description: descController.text.trim(),
+                      dueDate: selectedDate!,
+                    );
+                    setState(() {
+                      _terms.add(newItem);
+                      _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                    });
+                    Navigator.of(ctx).pop();
+                    await _saveAll();
+                    await _scheduleNotification(newItem);
+                  }
                 },
-                child: const Text('Zapisz termin',
+                child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz termin',
                     style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1002,16 +1026,17 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 
-  void _showAddRepairDialog() async {
+  void _showAddEditRepairDialog({RepairItem? repairToEdit}) async {
+    final isEditing = repairToEdit != null;
     final prefs = await SharedPreferences.getInstance();
     final List<String> savedWorkshops = prefs.getStringList('saved_workshops') ?? [];
     final List<String> savedRepairTitles = prefs.getStringList('saved_repair_titles') ?? [];
 
-    final titleController = TextEditingController();
-    final costController = TextEditingController();
-    final mileageController = TextEditingController();
-    final workshopController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
+    final titleController = TextEditingController(text: isEditing ? repairToEdit.title : '');
+    final costController = TextEditingController(text: isEditing ? repairToEdit.cost.toString() : '');
+    final mileageController = TextEditingController(text: isEditing ? repairToEdit.mileage : '');
+    final workshopController = TextEditingController(text: isEditing ? repairToEdit.workshop : '');
+    DateTime selectedDate = isEditing ? repairToEdit.date : DateTime.now();
 
     showModalBottomSheet(
       context: context,
@@ -1031,11 +1056,12 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Nowa naprawa / serwis',
+                Text(isEditing ? 'Edytuj naprawę / serwis' : 'Nowa naprawa / serwis',
                     style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Autocomplete<String>(
+                  initialValue: TextEditingValue(text: isEditing ? repairToEdit.title : ''),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
                       return savedRepairTitles;
@@ -1047,10 +1073,44 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   onSelected: (String selection) {
                     titleController.text = selection;
                   },
+                  optionsViewBuilder: (context, Function(String) onSelected, Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: MediaQuery.of(context).size.width - 40,
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
+                          ),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return InkWell(
+                                onTap: () => onSelected(option),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Text(
+                                    option,
+                                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                   fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                    if (controller.text.isEmpty && titleController.text.isNotEmpty) {
-                      controller.text = titleController.text;
-                    }
                     return TextField(
                       controller: controller,
                       focusNode: focusNode,
@@ -1097,6 +1157,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 Autocomplete<String>(
+                  initialValue: TextEditingValue(text: isEditing ? repairToEdit.workshop : ''),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
                       return savedWorkshops;
@@ -1108,10 +1169,44 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   onSelected: (String selection) {
                     workshopController.text = selection;
                   },
+                  optionsViewBuilder: (context, Function(String) onSelected, Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: MediaQuery.of(context).size.width - 40,
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
+                          ),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return InkWell(
+                                onTap: () => onSelected(option),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Text(
+                                    option,
+                                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                   fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                    if (controller.text.isEmpty && workshopController.text.isNotEmpty) {
-                      controller.text = workshopController.text;
-                    }
                     return TextField(
                       controller: controller,
                       focusNode: focusNode,
@@ -1169,39 +1264,56 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
                     final workshopVal = workshopController.text.trim();
 
-                    // Zapisujemy do pamięci unikalne nazwy napraw
                     if (!savedRepairTitles.contains(titleVal)) {
                       savedRepairTitles.add(titleVal);
                       await prefs.setStringList('saved_repair_titles', savedRepairTitles);
                     }
 
-                    // Zapisujemy do pamięci unikalne nazwy warsztatów
                     if (workshopVal.isNotEmpty && !savedWorkshops.contains(workshopVal)) {
                       savedWorkshops.add(workshopVal);
                       await prefs.setStringList('saved_workshops', savedWorkshops);
                     }
 
-                    final newRepair = RepairItem(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      carName: widget.carName,
-                      title: titleVal,
-                      cost: double.tryParse(
-                              costController.text.replaceAll(',', '.')) ??
-                          0.0,
-                      mileage: mileageController.text.trim(),
-                      workshop: workshopVal,
-                      date: selectedDate,
-                    );
-                    setState(() {
-                      _repairs.add(newRepair);
-                      _repairs.sort((a, b) => b.date.compareTo(a.date));
-                    });
+                    final costVal = double.tryParse(costController.text.replaceAll(',', '.')) ?? 0.0;
+                    final mileageVal = mileageController.text.trim();
+
+                    if (isEditing) {
+                      final index = _repairs.indexWhere((r) => r.id == repairToEdit.id);
+                      if (index != -1) {
+                        setState(() {
+                          _repairs[index] = RepairItem(
+                            id: repairToEdit.id,
+                            carName: widget.carName,
+                            title: titleVal,
+                            cost: costVal,
+                            mileage: mileageVal,
+                            workshop: workshopVal,
+                            date: selectedDate,
+                          );
+                          _repairs.sort((a, b) => b.date.compareTo(a.date));
+                        });
+                      }
+                    } else {
+                      final newRepair = RepairItem(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        carName: widget.carName,
+                        title: titleVal,
+                        cost: costVal,
+                        mileage: mileageVal,
+                        workshop: workshopVal,
+                        date: selectedDate,
+                      );
+                      setState(() {
+                        _repairs.add(newRepair);
+                        _repairs.sort((a, b) => b.date.compareTo(a.date));
+                      });
+                    }
                     Navigator.of(ctx).pop();
                     await _saveAll();
                   },
-                  child: const Text('Zapisz naprawę',
+                  child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz naprawę',
                       style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1289,8 +1401,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed:
-            _currentIndex == 0 ? _showAddTermDialog : _showAddRepairDialog,
+        onPressed: () => _currentIndex == 0 ? _showAddEditTermDialog() : _showAddEditRepairDialog(),
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
@@ -1399,6 +1510,11 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           label: const Text('+1 rok'),
                         ),
                         IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                          tooltip: 'Edytuj termin',
+                          onPressed: () => _showAddEditTermDialog(termToEdit: item),
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.delete_outline,
                               color: Colors.red),
                           tooltip: 'Usuń termin',
@@ -1485,13 +1601,23 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                     Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date),
                         style: TextStyle(
                             color: Colors.grey.shade500, fontSize: 12)),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      tooltip: 'Usuń naprawę',
-                      onPressed: () async {
-                        setState(() => _repairs.removeAt(i));
-                        await _saveAll();
-                      },
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                          tooltip: 'Edytuj naprawę',
+                          onPressed: () => _showAddEditRepairDialog(repairToEdit: item),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          tooltip: 'Usuń naprawę',
+                          onPressed: () async {
+                            setState(() => _repairs.removeAt(i));
+                            await _saveAll();
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
