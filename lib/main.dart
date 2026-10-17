@@ -1002,7 +1002,11 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 
-  void _showAddRepairDialog() {
+  void _showAddRepairDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> savedWorkshops = prefs.getStringList('saved_workshops') ?? [];
+    final List<String> savedRepairTitles = prefs.getStringList('saved_repair_titles') ?? [];
+
     final titleController = TextEditingController();
     final costController = TextEditingController();
     final mileageController = TextEditingController();
@@ -1031,15 +1035,37 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                     style:
                         TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [UpperCaseFirstLetterFormatter()],
-                  decoration: InputDecoration(
-                    labelText: 'Nazwa naprawy (np. Wymiana klocków)',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return savedRepairTitles;
+                    }
+                    return savedRepairTitles.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    titleController.text = selection;
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    if (controller.text.isEmpty && titleController.text.isNotEmpty) {
+                      controller.text = titleController.text;
+                    }
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: [UpperCaseFirstLetterFormatter()],
+                      onChanged: (val) {
+                        titleController.text = val;
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Nazwa naprawy (np. Wymiana klocków)',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -1070,15 +1096,37 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: workshopController,
-                  textCapitalization: TextCapitalization.sentences,
-                  inputFormatters: [UpperCaseFirstLetterFormatter()],
-                  decoration: InputDecoration(
-                    labelText: 'Warsztat (nazwa lub adres)',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
+                Autocomplete<String>(
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return savedWorkshops;
+                    }
+                    return savedWorkshops.where((String option) {
+                      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    workshopController.text = selection;
+                  },
+                  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                    if (controller.text.isEmpty && workshopController.text.isNotEmpty) {
+                      controller.text = workshopController.text;
+                    }
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: [UpperCaseFirstLetterFormatter()],
+                      onChanged: (val) {
+                        workshopController.text = val;
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Warsztat (nazwa lub adres)',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 InkWell(
@@ -1116,16 +1164,32 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
-                    if (titleController.text.trim().isEmpty) return;
+                    final titleVal = titleController.text.trim();
+                    if (titleVal.isEmpty) return;
+
+                    final workshopVal = workshopController.text.trim();
+
+                    // Zapisujemy do pamięci unikalne nazwy napraw
+                    if (!savedRepairTitles.contains(titleVal)) {
+                      savedRepairTitles.add(titleVal);
+                      await prefs.setStringList('saved_repair_titles', savedRepairTitles);
+                    }
+
+                    // Zapisujemy do pamięci unikalne nazwy warsztatów
+                    if (workshopVal.isNotEmpty && !savedWorkshops.contains(workshopVal)) {
+                      savedWorkshops.add(workshopVal);
+                      await prefs.setStringList('saved_workshops', savedWorkshops);
+                    }
+
                     final newRepair = RepairItem(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
                       carName: widget.carName,
-                      title: titleController.text.trim(),
+                      title: titleVal,
                       cost: double.tryParse(
                               costController.text.replaceAll(',', '.')) ??
                           0.0,
                       mileage: mileageController.text.trim(),
-                      workshop: workshopController.text.trim(),
+                      workshop: workshopVal,
                       date: selectedDate,
                     );
                     setState(() {
@@ -1373,13 +1437,6 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       itemCount: _repairs.length,
       itemBuilder: (ctx, i) {
         final item = _repairs[i];
-        final List<String> details = [];
-        if (item.workshop.isNotEmpty) {
-          details.add('Warsztat: ${item.workshop}');
-        }
-        if (item.mileage.isNotEmpty) {
-          details.add('Przebieg: ${item.mileage}');
-        }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1406,12 +1463,20 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                             color: Colors.green)),
                   ],
                 ),
-                if (details.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    details.join('  •  '),
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                  ),
+                if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  if (item.workshop.isNotEmpty)
+                    Text(
+                      'Warsztat: ${item.workshop}',
+                      style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  if (item.mileage.isNotEmpty) ...[
+                    if (item.workshop.isNotEmpty) const SizedBox(height: 2),
+                    Text(
+                      'Przebieg: ${item.mileage}',
+                      style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  ],
                 ],
                 const Divider(height: 20),
                 Row(
