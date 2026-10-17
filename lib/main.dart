@@ -53,7 +53,7 @@ Future<void> main() async {
     await androidPlugin.requestNotificationsPermission();
     await androidPlugin.requestExactAlarmsPermission();
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'autotermin_channel_v8',
+      'autotermin_channel_v10',
       'Przypomnienia o terminach',
       description: 'Powiadomienia o zbliżających się terminach dla pojazdów',
       importance: Importance.max,
@@ -295,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _saveCars() async {
     final prefs = await SharedPreferences.getInstance();
     final listJson = _cars.map((c) => jsonEncode(c.toMap())).toList();
-    await prefs.setStringList('saved_cars_objects', listJson);
+    await prefs.getStringList('saved_cars_objects', listJson);
   }
 
   void _showAddCarDialog() {
@@ -451,12 +451,12 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
-        builder: (modalContext, setModalState) => Padding(
+        builder: (context, setDialogState) => Padding(
           padding: EdgeInsets.only(
             top: 24,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -529,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
                     if (image != null) {
-                      setModalState(() {
+                      setDialogState(() {
                         galleryImagePath = image.path;
                       });
                     }
@@ -921,7 +921,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v8',
+        'autotermin_channel_v10',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -973,7 +973,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v8',
+        'autotermin_channel_v10',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -1179,7 +1179,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         Expanded(
                           child: Text(
                             selectedNotifDate == null
-                                ? 'Data powiadomienia (opcjonalnie)'
+                                ? 'Data powiadomienia (wybierz ręcznie)'
                                 : 'Data powiadomienia: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedNotifDate!)}',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
