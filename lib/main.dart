@@ -53,7 +53,7 @@ Future<void> main() async {
     await androidPlugin.requestNotificationsPermission();
     await androidPlugin.requestExactAlarmsPermission();
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'autotermin_channel_v6',
+      'autotermin_channel_v7',
       'Przypomnienia o terminach',
       description: 'Powiadomienia o zbliżających się terminach dla pojazdów',
       importance: Importance.max,
@@ -920,7 +920,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v6',
+        'autotermin_channel_v7',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -949,7 +949,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v6',
+        'autotermin_channel_v7',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -966,7 +966,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     final String body =
         'Termin ważności: $dueFormatted${item.description.isNotEmpty ? " • ${item.description}" : ""}';
 
-    // 1. Sztywne powiadomienie na 7 dni przed o 9:00
+    // 1. Sztywne powiadomienie na 7 dni przed o 9:00 rano
     DateTime rigidDate = item.dueDate.subtract(const Duration(days: 7));
     rigidDate = DateTime(rigidDate.year, rigidDate.month, rigidDate.day, 9, 0);
 
@@ -991,7 +991,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       } catch (_) {}
     }
 
-    // 2. Dodatkowe powiadomienie użytkownika (jeśli zostało ustawione)
+    // 2. Dodatkowe powiadomienie użytkownika (jeśli zostało wybrane)
     if (item.notificationDate != null) {
       DateTime customDate = DateTime(
         item.notificationDate!.year,
@@ -1147,14 +1147,16 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       children: [
                         const Icon(Icons.calendar_month),
                         const SizedBox(width: 12),
-                        Text(
-                          selectedDueDate == null
-                              ? 'Wybierz datę ważności'
-                              : 'Termin ważności: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDueDate!)}',
-                          style: TextStyle(
-                              fontWeight: selectedDueDate == null
-                                  ? FontWeight.normal
-                                  : FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            selectedDueDate == null
+                                ? 'Wybierz datę ważności'
+                                : 'Termin ważności: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDueDate!)}',
+                            style: TextStyle(
+                                fontWeight: selectedDueDate == null
+                                    ? FontWeight.normal
+                                    : FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -1183,11 +1185,13 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       children: [
                         const Icon(Icons.notifications_active_outlined),
                         const SizedBox(width: 12),
-                        Text(
-                          selectedNotifDate == null
-                              ? 'Dodatkowa data powiadomienia (opcjonalnie)'
-                              : 'Data powiadomienia: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedNotifDate!)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            selectedNotifDate == null
+                                ? 'Dodatkowa data powiadomienia (opcjonalnie)'
+                                : 'Data powiadomienia: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedNotifDate!)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
@@ -1213,9 +1217,11 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       children: [
                         const Icon(Icons.access_time_rounded),
                         const SizedBox(width: 12),
-                        Text(
-                          'Godzina powiadomienia: ${_formatTime(selectedTime.hour, selectedTime.minute)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            'Godzina powiadomienia: ${_formatTime(selectedTime.hour, selectedTime.minute)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
