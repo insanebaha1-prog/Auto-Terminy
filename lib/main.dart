@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -146,6 +147,16 @@ class _AutoTerminAppState extends State<AutoTerminApp> {
     return MaterialApp(
       title: 'AutoTermin',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('pl', 'PL'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('pl', 'PL'),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3C72),
@@ -205,8 +216,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    final List<String>? savedCarsJson = prefs.getStringList('saved_cars_objects');
+
+    final List<String>? savedCarsJson =
+        prefs.getStringList('saved_cars_objects');
     if (savedCarsJson != null) {
       _cars = savedCarsJson.map((e) => CarItem.fromMap(jsonDecode(e))).toList();
     }
@@ -253,16 +265,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: customCarController,
                     decoration: InputDecoration(
                       labelText: 'Nazwa auta (np. Nissan Qashqai)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Wybierz gotową ilustrację auta:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text('Wybierz gotową ilustrację auta:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: _presetIllustrations.entries.map((entry) {
-                      final isSelected = selectedPreset == entry.key && galleryImagePath == null;
+                      final isSelected = selectedPreset == entry.key &&
+                          galleryImagePath == null;
                       return GestureDetector(
                         onTap: () => setDialogState(() {
                           selectedPreset = entry.key;
@@ -271,21 +287,33 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF1E3C72).withOpacity(0.3) : Colors.transparent,
-                            border: Border.all(color: isSelected ? const Color(0xFF1E3C72) : Colors.grey.shade400, width: 2),
+                            color: isSelected
+                                ? const Color(0xFF1E3C72).withOpacity(0.3)
+                                : Colors.transparent,
+                            border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF1E3C72)
+                                    : Colors.grey.shade400,
+                                width: 2),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(entry.value, size: 32, color: isSelected ? Colors.blueAccent : Colors.grey),
+                          child: Icon(entry.value,
+                              size: 32,
+                              color:
+                                  isSelected ? Colors.blueAccent : Colors.grey),
                         ),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueGrey,
+                        foregroundColor: Colors.white),
                     onPressed: () async {
                       final ImagePicker picker = ImagePicker();
-                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                      final XFile? image =
+                          await picker.pickImage(source: ImageSource.gallery);
                       if (image != null) {
                         setDialogState(() {
                           galleryImagePath = image.path;
@@ -293,11 +321,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       }
                     },
                     icon: const Icon(Icons.photo_library),
-                    label: Text(galleryImagePath == null ? 'Dodaj zdjęcie z galerii' : 'Zdjęcie wybrano ✔'),
+                    label: Text(galleryImagePath == null
+                        ? 'Dodaj zdjęcie z galerii'
+                        : 'Zdjęcie wybrano ✔'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3C72),
+                        foregroundColor: Colors.white),
                     onPressed: () {
                       final val = customCarController.text.trim();
                       if (val.isNotEmpty && !_cars.any((c) => c.name == val)) {
@@ -344,12 +376,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Wybierz nową ilustrację:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text('Wybierz nową ilustrację:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: _presetIllustrations.entries.map((entry) {
-                      final isSelected = selectedPreset == entry.key && galleryImagePath == null;
+                      final isSelected = selectedPreset == entry.key &&
+                          galleryImagePath == null;
                       return GestureDetector(
                         onTap: () => setDialogState(() {
                           selectedPreset = entry.key;
@@ -358,21 +393,33 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF1E3C72).withOpacity(0.3) : Colors.transparent,
-                            border: Border.all(color: isSelected ? const Color(0xFF1E3C72) : Colors.grey.shade400, width: 2),
+                            color: isSelected
+                                ? const Color(0xFF1E3C72).withOpacity(0.3)
+                                : Colors.transparent,
+                            border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF1E3C72)
+                                    : Colors.grey.shade400,
+                                width: 2),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(entry.value, size: 32, color: isSelected ? Colors.blueAccent : Colors.grey),
+                          child: Icon(entry.value,
+                              size: 32,
+                              color:
+                                  isSelected ? Colors.blueAccent : Colors.grey),
                         ),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueGrey,
+                        foregroundColor: Colors.white),
                     onPressed: () async {
                       final ImagePicker picker = ImagePicker();
-                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                      final XFile? image =
+                          await picker.pickImage(source: ImageSource.gallery);
                       if (image != null) {
                         setDialogState(() {
                           galleryImagePath = image.path;
@@ -380,15 +427,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       }
                     },
                     icon: const Icon(Icons.photo_library),
-                    label: Text(galleryImagePath == null ? 'Wybierz zdjęcie z galerii' : 'Zdjęcie wybrano ✔'),
+                    label: Text(galleryImagePath == null
+                        ? 'Wybierz zdjęcie z galerii'
+                        : 'Zdjęcie wybrano ✔'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3C72), foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3C72),
+                        foregroundColor: Colors.white),
                     onPressed: () {
                       final finalImg = galleryImagePath ?? selectedPreset;
                       setState(() {
-                        _cars[index] = CarItem(name: car.name, imagePath: finalImg);
+                        _cars[index] =
+                            CarItem(name: car.name, imagePath: finalImg);
                       });
                       _saveCars();
                       Navigator.pop(context);
@@ -420,15 +472,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentDateFormatted = DateFormat('dd.MM.yyyy', 'pl_PL').format(DateTime.now());
+    final currentDateFormatted =
+        DateFormat('dd.MM.yyyy', 'pl_PL').format(DateTime.now());
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Mój Garaż', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(currentDateFormatted, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal, color: Colors.white70)),
+            const Text('Mój Garaż',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(currentDateFormatted,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                    color: Colors.white70)),
           ],
         ),
         backgroundColor: const Color(0xFF1E3C72),
@@ -448,11 +506,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.directions_car_outlined, size: 90, color: Colors.blueGrey.shade300),
+                    Icon(Icons.directions_car_outlined,
+                        size: 90, color: Colors.blueGrey.shade300),
                     const SizedBox(height: 16),
-                    const Text('Brak pojazdów w garażu', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Text('Brak pojazdów w garażu',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    const Text('Kliknij przycisk [+] poniżej, aby dodać swoje pierwsze auto.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                    const Text(
+                        'Kliknij przycisk [+] poniżej, aby dodać swoje pierwsze auto.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey)),
                   ],
                 ),
               ),
@@ -462,7 +526,8 @@ class _HomeScreenState extends State<HomeScreen> {
               itemCount: _cars.length,
               itemBuilder: (context, index) {
                 final car = _cars[index];
-                final carTerms = _terms.where((t) => t.carName == car.name).toList();
+                final carTerms =
+                    _terms.where((t) => t.carName == car.name).toList();
                 carTerms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
                 String infoText = 'Brak terminów';
@@ -472,13 +537,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   final nextTerm = carTerms.first;
                   final days = _calculateDaysLeft(nextTerm.dueDate);
                   if (days < 0) {
-                    infoText = '${nextTerm.title}: Po terminie o ${days.abs()} dni!';
+                    infoText =
+                        '${nextTerm.title}: Po terminie o ${days.abs()} dni!';
                     infoColor = Colors.red;
                   } else if (days == 0) {
                     infoText = '${nextTerm.title}: Dzisiaj!';
                     infoColor = Colors.red;
                   } else {
-                    infoText = '${nextTerm.title}: za $days dni (${DateFormat('dd.MM.yyyy', 'pl_PL').format(nextTerm.dueDate)})';
+                    infoText =
+                        '${nextTerm.title}: za $days dni (${DateFormat('dd.MM.yyyy', 'pl_PL').format(nextTerm.dueDate)})';
                     infoColor = days <= 14 ? Colors.orange : Colors.green;
                   }
                   if (carTerms.length > 1) {
@@ -491,7 +558,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   imageWidget = Container(
                     color: const Color(0xFF1E3C72).withOpacity(0.8),
                     child: Center(
-                      child: Icon(_presetIllustrations[car.imagePath], size: 70, color: Colors.white),
+                      child: Icon(_presetIllustrations[car.imagePath],
+                          size: 70, color: Colors.white),
                     ),
                   );
                 } else {
@@ -500,14 +568,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: const Color(0xFF1E3C72),
-                      child: const Icon(Icons.directions_car, size: 70, color: Colors.white),
+                      child: const Icon(Icons.directions_car,
+                          size: 70, color: Colors.white),
                     ),
                   );
                 }
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20)),
                   elevation: 3,
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -515,7 +585,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => CarDetailScreen(carName: car.name, carImageUrl: car.imagePath, presetMap: _presetIllustrations),
+                          builder: (context) => CarDetailScreen(
+                              carName: car.name,
+                              carImageUrl: car.imagePath,
+                              presetMap: _presetIllustrations),
                         ),
                       ).then((_) => _loadData());
                     },
@@ -531,7 +604,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.6)
+                                    ],
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
                                   ),
@@ -540,13 +616,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               Positioned(
                                 bottom: 12,
                                 left: 16,
+                                right: 16,
                                 child: Text(
                                   car.name,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                                    shadows: [
+                                      Shadow(color: Colors.black, blurRadius: 4)
+                                    ],
                                   ),
                                 ),
                               ),
@@ -554,19 +633,24 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.notifications_active, size: 16, color: Colors.blueGrey),
+                                    const Icon(Icons.notifications_active,
+                                        size: 16, color: Colors.blueGrey),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         infoText,
-                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: infoColor),
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: infoColor),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -576,12 +660,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                                    icon: const Icon(Icons.edit_outlined,
+                                        color: Colors.blue),
                                     tooltip: 'Zmień grafikę auta',
-                                    onPressed: () => _showEditCarImageDialog(index),
+                                    onPressed: () =>
+                                        _showEditCarImageDialog(index),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.red),
                                     tooltip: 'Usuń auto',
                                     onPressed: () {
                                       setState(() => _cars.removeAt(index));
@@ -604,7 +691,8 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Dodaj auto', style: TextStyle(fontWeight: FontWeight.bold)),
+        label: const Text('Dodaj auto',
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -614,7 +702,11 @@ class CarDetailScreen extends StatefulWidget {
   final String carName;
   final String carImageUrl;
   final Map<String, IconData> presetMap;
-  const CarDetailScreen({super.key, required this.carName, required this.carImageUrl, required this.presetMap});
+  const CarDetailScreen(
+      {super.key,
+      required this.carName,
+      required this.carImageUrl,
+      required this.presetMap});
 
   @override
   State<CarDetailScreen> createState() => _CarDetailScreenState();
@@ -626,12 +718,17 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
   List<RepairItem> _repairs = [];
 
   final Map<String, CategoryStyle> _termCategories = {
-    'Badanie techniczne': CategoryStyle(Icons.fact_check_rounded, const Color(0xFF1976D2)),
-    'Polisa OC/AC': CategoryStyle(Icons.shield_rounded, const Color(0xFF512DA8)),
-    'Wymiana oleju/filtrów': CategoryStyle(Icons.build_circle_rounded, const Color(0xFFE65100)),
+    'Badanie techniczne':
+        CategoryStyle(Icons.fact_check_rounded, const Color(0xFF1976D2)),
+    'Polisa OC/AC':
+        CategoryStyle(Icons.shield_rounded, const Color(0xFF512DA8)),
+    'Wymiana oleju/filtrów':
+        CategoryStyle(Icons.build_circle_rounded, const Color(0xFFE65100)),
     'Wymiana opon': CategoryStyle(Icons.album_rounded, const Color(0xFF00796B)),
-    'Klimatyzacja / Serwis': CategoryStyle(Icons.ac_unit_rounded, const Color(0xFF0288D1)),
-    'Inne': CategoryStyle(Icons.directions_car_filled_rounded, const Color(0xFF455A64)),
+    'Klimatyzacja / Serwis':
+        CategoryStyle(Icons.ac_unit_rounded, const Color(0xFF0288D1)),
+    'Inne': CategoryStyle(
+        Icons.directions_car_filled_rounded, const Color(0xFF455A64)),
   };
 
   @override
@@ -642,18 +739,24 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     final String? termsJson = prefs.getString('saved_terms');
     if (termsJson != null) {
       final List<dynamic> decoded = jsonDecode(termsJson);
-      _terms = decoded.map((e) => TermItem.fromMap(e)).where((t) => t.carName == widget.carName).toList();
+      _terms = decoded
+          .map((e) => TermItem.fromMap(e))
+          .where((t) => t.carName == widget.carName)
+          .toList();
       _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
     }
 
     final String? repairsJson = prefs.getString('saved_repairs');
     if (repairsJson != null) {
       final List<dynamic> decoded = jsonDecode(repairsJson);
-      _repairs = decoded.map((e) => RepairItem.fromMap(e)).where((r) => r.carName == widget.carName).toList();
+      _repairs = decoded
+          .map((e) => RepairItem.fromMap(e))
+          .where((r) => r.carName == widget.carName)
+          .toList();
       _repairs.sort((a, b) => b.date.compareTo(a.date));
     }
 
@@ -662,22 +765,30 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   Future<void> _saveAll() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     final String? termsJson = prefs.getString('saved_terms');
     List<TermItem> allTerms = [];
     if (termsJson != null) {
-      allTerms = (jsonDecode(termsJson) as List).map((e) => TermItem.fromMap(e)).where((t) => t.carName != widget.carName).toList();
+      allTerms = (jsonDecode(termsJson) as List)
+          .map((e) => TermItem.fromMap(e))
+          .where((t) => t.carName != widget.carName)
+          .toList();
     }
     allTerms.addAll(_terms);
-    await prefs.setString('saved_terms', jsonEncode(allTerms.map((e) => e.toMap()).toList()));
+    await prefs.setString(
+        'saved_terms', jsonEncode(allTerms.map((e) => e.toMap()).toList()));
 
     final String? repairsJson = prefs.getString('saved_repairs');
     List<RepairItem> allRepairs = [];
     if (repairsJson != null) {
-      allRepairs = (jsonDecode(repairsJson) as List).map((e) => RepairItem.fromMap(e)).where((r) => r.carName != widget.carName).toList();
+      allRepairs = (jsonDecode(repairsJson) as List)
+          .map((e) => RepairItem.fromMap(e))
+          .where((r) => r.carName != widget.carName)
+          .toList();
     }
     allRepairs.addAll(_repairs);
-    await prefs.setString('saved_repairs', jsonEncode(allRepairs.map((e) => e.toMap()).toList()));
+    await prefs.setString(
+        'saved_repairs', jsonEncode(allRepairs.map((e) => e.toMap()).toList()));
   }
 
   int _calculateDaysLeft(DateTime dueDate) {
@@ -689,7 +800,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   Future<void> _scheduleNotification(TermItem item) async {
     DateTime reminderDate = item.dueDate.subtract(const Duration(days: 7));
-    reminderDate = DateTime(reminderDate.year, reminderDate.month, reminderDate.day, 9, 0);
+    reminderDate =
+        DateTime(reminderDate.year, reminderDate.month, reminderDate.day, 9, 0);
 
     if (reminderDate.isBefore(DateTime.now())) {
       reminderDate = DateTime.now().add(const Duration(seconds: 15));
@@ -709,7 +821,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -720,19 +833,6 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       initialDate: initialDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF1E3C72),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1E1E1E),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
   }
 
@@ -744,31 +844,37 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            top: 24, left: 20, right: 20,
+            top: 24,
+            left: 20,
+            right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Nowy termin', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text('Nowy termin',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Kategoria',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 items: _termCategories.entries.map((entry) {
                   return DropdownMenuItem(
                     value: entry.key,
                     child: Row(
                       children: [
-                        Icon(entry.value.icon, color: entry.value.color, size: 20),
+                        Icon(entry.value.icon,
+                            color: entry.value.color, size: 20),
                         const SizedBox(width: 8),
                         Text(entry.key),
                       ],
@@ -782,13 +888,15 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 controller: descController,
                 decoration: InputDecoration(
                   labelText: 'Dodatkowy opis',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               const SizedBox(height: 12),
               InkWell(
                 onTap: () async {
-                  final picked = await _pickPolishDate(DateTime.now().add(const Duration(days: 30)));
+                  final picked = await _pickPolishDate(
+                      DateTime.now().add(const Duration(days: 30)));
                   if (picked != null) {
                     setModalState(() => selectedDate = picked);
                   }
@@ -807,7 +915,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         selectedDate == null
                             ? 'Wybierz datę ważności'
                             : 'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate!)}',
-                        style: TextStyle(fontWeight: selectedDate == null ? FontWeight.normal : FontWeight.bold),
+                        style: TextStyle(
+                            fontWeight: selectedDate == null
+                                ? FontWeight.normal
+                                : FontWeight.bold),
                       ),
                     ],
                   ),
@@ -819,7 +930,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   backgroundColor: const Color(0xFF1E3C72),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () async {
                   if (selectedDate == null) return;
@@ -838,7 +950,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   await _scheduleNotification(newItem);
                   if (context.mounted) Navigator.pop(context);
                 },
-                child: const Text('Zapisz termin', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text('Zapisz termin',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -857,11 +971,14 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: EdgeInsets.only(
-            top: 24, left: 20, right: 20,
+            top: 24,
+            left: 20,
+            right: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
@@ -869,13 +986,16 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Nowa naprawa / serwis', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text('Nowa naprawa / serwis',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: titleController,
                   decoration: InputDecoration(
                     labelText: 'Nazwa naprawy (np. Wymiana klocków)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -887,7 +1007,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'Koszt (PLN)',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                     ),
@@ -897,7 +1018,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         controller: mileageController,
                         decoration: InputDecoration(
                           labelText: 'Przebieg',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                     ),
@@ -908,7 +1030,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   controller: workshopController,
                   decoration: InputDecoration(
                     labelText: 'Warsztat (nazwa lub adres)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -929,7 +1052,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       children: [
                         const Icon(Icons.calendar_month),
                         const SizedBox(width: 12),
-                        Text('Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                            'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate)}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -940,7 +1066,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                     backgroundColor: const Color(0xFF1E3C72),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
                     if (titleController.text.trim().isEmpty) return;
@@ -948,7 +1075,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
                       carName: widget.carName,
                       title: titleController.text.trim(),
-                      cost: double.tryParse(costController.text.replaceAll(',', '.')) ?? 0.0,
+                      cost: double.tryParse(
+                              costController.text.replaceAll(',', '.')) ??
+                          0.0,
                       mileage: mileageController.text.trim(),
                       workshop: workshopController.text.trim(),
                       date: selectedDate,
@@ -960,7 +1089,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                     await _saveAll();
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Zapisz naprawę', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text('Zapisz naprawę',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -977,7 +1108,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       headerWidget = Container(
         color: const Color(0xFF1E3C72),
         child: Center(
-          child: Icon(widget.presetMap[widget.carImageUrl], size: 90, color: Colors.white),
+          child: Icon(widget.presetMap[widget.carImageUrl],
+              size: 90, color: Colors.white),
         ),
       );
     } else {
@@ -986,7 +1118,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => Container(
           color: const Color(0xFF1E3C72),
-          child: const Icon(Icons.directions_car, size: 90, color: Colors.white),
+          child:
+              const Icon(Icons.directions_car, size: 90, color: Colors.white),
         ),
       );
     }
@@ -997,10 +1130,21 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
+            centerTitle: true,
             backgroundColor: const Color(0xFF1E3C72),
             foregroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(widget.carName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 4)])),
+              centerTitle: true,
+              title: Text(
+                widget.carName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                ),
+              ),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -1008,7 +1152,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7)
+                        ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
@@ -1025,23 +1172,29 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) => setState(() => _currentIndex = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.event_note_rounded), label: 'Terminarz'),
-          NavigationDestination(icon: Icon(Icons.build_rounded), label: 'Naprawy'),
+          NavigationDestination(
+              icon: Icon(Icons.event_note_rounded), label: 'Terminarz'),
+          NavigationDestination(
+              icon: Icon(Icons.build_rounded), label: 'Naprawy'),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _currentIndex == 0 ? _showAddTermDialog : _showAddRepairDialog,
+        onPressed:
+            _currentIndex == 0 ? _showAddTermDialog : _showAddRepairDialog,
         backgroundColor: const Color(0xFF1E3C72),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: Text(_currentIndex == 0 ? 'Dodaj termin' : 'Dodaj naprawę', style: const TextStyle(fontWeight: FontWeight.bold)),
+        label: Text(_currentIndex == 0 ? 'Dodaj termin' : 'Dodaj naprawę',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
 
   Widget _buildTermsView() {
     if (_terms.isEmpty) {
-      return const Center(child: Text('Brak zaplanowanych terminów dla tego auta', style: TextStyle(color: Colors.grey)));
+      return const Center(
+          child: Text('Brak zaplanowanych terminów dla tego auta',
+              style: TextStyle(color: Colors.grey)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -1065,7 +1218,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -1079,16 +1233,27 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(item.title,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
                           if (item.description.isNotEmpty)
-                            Text(item.description, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                            Text(item.description,
+                                style: TextStyle(
+                                    color: Colors.grey.shade600, fontSize: 13)),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
-                      child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Text(statusText,
+                          style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12)),
                     ),
                   ],
                 ),
@@ -1096,18 +1261,26 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                        'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     Row(
                       children: [
                         TextButton.icon(
                           onPressed: () async {
-                            final newDate = DateTime(item.dueDate.year + 1, item.dueDate.month, item.dueDate.day);
+                            final newDate = DateTime(item.dueDate.year + 1,
+                                item.dueDate.month, item.dueDate.day);
                             final updated = TermItem(
-                              id: item.id, carName: item.carName, title: item.title, description: item.description, dueDate: newDate,
+                              id: item.id,
+                              carName: item.carName,
+                              title: item.title,
+                              description: item.description,
+                              dueDate: newDate,
                             );
                             setState(() {
                               _terms[i] = updated;
-                              _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                              _terms.sort(
+                                  (a, b) => a.dueDate.compareTo(b.dueDate));
                             });
                             await _saveAll();
                             await _scheduleNotification(updated);
@@ -1116,9 +1289,11 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           label: const Text('+1 rok'),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red),
                           onPressed: () async {
-                            await flutterLocalNotificationsPlugin.cancel(item.id.hashCode);
+                            await flutterLocalNotificationsPlugin
+                                .cancel(item.id.hashCode);
                             setState(() => _terms.removeAt(i));
                             await _saveAll();
                           },
@@ -1137,7 +1312,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   Widget _buildRepairsView() {
     if (_repairs.isEmpty) {
-      return const Center(child: Text('Brak zarejestrowanych napraw dla tego auta', style: TextStyle(color: Colors.grey)));
+      return const Center(
+          child: Text('Brak zarejestrowanych napraw dla tego auta',
+              style: TextStyle(color: Colors.grey)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -1146,7 +1323,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         final item = _repairs[i];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -1155,20 +1333,30 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(item.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('${item.cost.toStringAsFixed(2)} PLN', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                    Text(item.title,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('${item.cost.toStringAsFixed(2)} PLN',
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green)),
                   ],
                 ),
                 if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text('${item.workshop.isNotEmpty ? "Warsztat: ${item.workshop}" : ""} ${item.mileage.isNotEmpty ? "• ${item.mileage}" : ""}',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  Text(
+                      '${item.workshop.isNotEmpty ? "Warsztat: ${item.workshop}" : ""} ${item.mileage.isNotEmpty ? "• ${item.mileage}" : ""}',
+                      style:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                 ],
                 const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date),
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 12)),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
                       onPressed: () async {
