@@ -32,6 +32,9 @@ class UpperCaseFirstLetterFormatter extends TextInputFormatter {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
+  try {
+    tz.setLocalLocation(tz.getLocation('Europe/Warsaw'));
+  } catch (_) {}
   await initializeDateFormatting('pl_PL', null);
 
   const AndroidInitializationSettings initializationSettingsAndroid =
@@ -42,10 +45,23 @@ Future<void> main() async {
 
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  await flutterLocalNotificationsPlugin
+  final androidPlugin = flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
+          AndroidFlutterLocalNotificationsPlugin>();
+
+  if (androidPlugin != null) {
+    await androidPlugin.requestNotificationsPermission();
+    await androidPlugin.requestExactAlarmsPermission();
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'autotermin_channel_v5',
+      'Przypomnienia o terminach',
+      description: 'Powiadomienia o zbliżających się terminach dla pojazdów',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+    await androidPlugin.createNotificationChannel(channel);
+  }
 
   runApp(const AutoTerminApp());
 }
@@ -76,6 +92,7 @@ class TermItem {
   final String title;
   final String description;
   final DateTime dueDate;
+  final DateTime notificationDate;
   final int notificationHour;
   final int notificationMinute;
 
@@ -85,6 +102,7 @@ class TermItem {
     required this.title,
     required this.description,
     required this.dueDate,
+    required this.notificationDate,
     this.notificationHour = 9,
     this.notificationMinute = 0,
   });
@@ -95,19 +113,28 @@ class TermItem {
         'title': title,
         'description': description,
         'dueDate': dueDate.toIso8601String(),
+        'notificationDate': notificationDate.toIso8601String(),
         'notificationHour': notificationHour,
         'notificationMinute': notificationMinute,
       };
 
-  factory TermItem.fromMap(Map<String, dynamic> map) => TermItem(
-        id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        carName: map['carName'] ?? '',
-        title: map['title'] ?? '',
-        description: map['description'] ?? '',
-        dueDate: DateTime.parse(map['dueDate']),
-        notificationHour: (map['notificationHour'] as num?)?.toInt() ?? 9,
-        notificationMinute: (map['notificationMinute'] as num?)?.toInt() ?? 0,
-      );
+  factory TermItem.fromMap(Map<String, dynamic> map) {
+    final parsedDueDate = DateTime.parse(map['dueDate']);
+    final defaultNotif = parsedDueDate.subtract(const Duration(days: 7));
+    final parsedNotifDate = map['notificationDate'] != null
+        ? DateTime.parse(map['notificationDate'])
+        : defaultNotif;
+    return TermItem(
+      id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      carName: map['carName'] ?? '',
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      dueDate: parsedDueDate,
+      notificationDate: parsedNotifDate,
+      notificationHour: (map['notificationHour'] as num?)?.toInt() ?? 9,
+      notificationMinute: (map['notificationMinute'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class RepairItem {
@@ -890,37 +917,101 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     return due.difference(today).inDays;
   }
 
+  Future<void> _sendTestNotification(TermItem item) async {
+    final String dueFormatted =
+        DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
+    const NotificationDetails details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'autotermin_channel_v5',
+        'Przypomnienia o terminach',
+        channelDescription:
+            'Powiadomienia o zbliżających się terminach dla pojazdów',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      _safeNotificationId('${item.id}_test'),
+      'Test: ${item.title} (${widget.carName})',
+      'Termin ważności: $dueFormatted${item.description.isNotEmpty ? " • ${item.description}" : ""}',
+      details,
+    );
+  }
+
   Future<void> _scheduleNotification(TermItem item) async {
     try {
       await flutterLocalNotificationsPlugin
           .cancel(_safeNotificationId(item.id));
     } catch (_) {}
 
-    DateTime reminderDate = item.dueDate.subtract(const Duration(days: 7));
-    reminderDate = DateTime(reminderDate.year, reminderDate.month,
-        reminderDate.day, item.notificationHour, item.notificationMinute);
+    DateTime reminderDate = DateTime(
+      item.notificationDate.year,
+      item.notificationDate.month,
+      item.notificationDate.day,
+      item.notificationHour,
+      item.notificationMinute,
+    );
 
-    if (reminderDate.isBefore(DateTime.now())) {
-      reminderDate = DateTime.now().add(const Duration(seconds: 15));
+    final DateTime now = DateTime.now();
+    Duration delay = reminderDate.difference(now);
+
+    if (delay.isNegative && delay.inMinutes >= -2) {
+      delay = const Duration(seconds: 5);
     }
 
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      _safeNotificationId(item.id),
-      'Zbliża się termin: ${item.title} (${widget.carName})',
-      'Upływa: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)} ${item.description.isNotEmpty ? "(${item.description})" : ""}',
-      tz.TZDateTime.from(reminderDate, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'przypominajka_channel',
-          'Przypomnienia o terminach',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
+    if (delay.isNegative) {
+      return;
+    }
+
+    final tz.TZDateTime scheduledTz = tz.TZDateTime.now(tz.local).add(delay);
+    final String dueFormatted =
+        DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
+
+    const NotificationDetails details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'autotermin_channel_v5',
+        'Przypomnienia o terminach',
+        channelDescription:
+            'Powiadomienia o zbliżających się terminach dla pojazdów',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
     );
+
+    final String title = 'Przypomnienie: ${item.title} (${widget.carName})';
+    final String body =
+        'Termin ważności: $dueFormatted${item.description.isNotEmpty ? " • ${item.description}" : ""}';
+
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        _safeNotificationId(item.id),
+        title,
+        body,
+        scheduledTz,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      try {
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          _safeNotificationId(item.id),
+          title,
+          body,
+          scheduledTz,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {}
+    }
   }
 
   Future<DateTime?> _pickPolishDate(DateTime initialDate) async {
@@ -951,7 +1042,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     final bool isEditing = editingId != null;
     final descController =
         TextEditingController(text: termToEdit?.description ?? '');
-    DateTime? selectedDate = termToEdit?.dueDate;
+    DateTime? selectedDueDate = termToEdit?.dueDate;
+    DateTime? selectedNotifDate = termToEdit?.notificationDate ??
+        termToEdit?.dueDate.subtract(const Duration(days: 7));
     TimeOfDay selectedTime = TimeOfDay(
       hour: termToEdit?.notificationHour ?? 9,
       minute: termToEdit?.notificationMinute ?? 0,
@@ -1023,11 +1116,15 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 const SizedBox(height: 12),
                 InkWell(
                   onTap: () async {
-                    final picked = await _pickPolishDate(selectedDate ??
+                    final picked = await _pickPolishDate(selectedDueDate ??
                         DateTime.now().add(const Duration(days: 30)));
                     if (picked != null) {
                       setModalState(() {
-                        selectedDate = picked;
+                        selectedDueDate = picked;
+                        if (!isEditing || selectedNotifDate == null) {
+                          selectedNotifDate =
+                              picked.subtract(const Duration(days: 7));
+                        }
                         errorText = null;
                       });
                     }
@@ -1046,13 +1143,46 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         const Icon(Icons.calendar_month),
                         const SizedBox(width: 12),
                         Text(
-                          selectedDate == null
+                          selectedDueDate == null
                               ? 'Wybierz datę ważności'
-                              : 'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate!)}',
+                              : 'Termin ważności: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDueDate!)}',
                           style: TextStyle(
-                              fontWeight: selectedDate == null
+                              fontWeight: selectedDueDate == null
                                   ? FontWeight.normal
                                   : FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final baseDate = selectedNotifDate ??
+                        selectedDueDate?.subtract(const Duration(days: 7)) ??
+                        DateTime.now();
+                    final pickedNotif = await _pickPolishDate(baseDate);
+                    if (pickedNotif != null) {
+                      setModalState(() {
+                        selectedNotifDate = pickedNotif;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_active_outlined),
+                        const SizedBox(width: 12),
+                        Text(
+                          selectedNotifDate == null
+                              ? 'Data powiadomienia (domyślnie 7 dni przed)'
+                              : 'Data powiadomienia: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedNotifDate!)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -1079,7 +1209,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         const Icon(Icons.access_time_rounded),
                         const SizedBox(width: 12),
                         Text(
-                          'Godzina powiadomienia (7 dni przed): ${_formatTime(selectedTime.hour, selectedTime.minute)}',
+                          'Godzina powiadomienia: ${_formatTime(selectedTime.hour, selectedTime.minute)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -1101,13 +1231,16 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () async {
-                    if (selectedDate == null) {
+                    if (selectedDueDate == null) {
                       setModalState(() {
                         errorText =
                             'Najpierw wybierz datę ważności z kalendarza!';
                       });
                       return;
                     }
+                    final finalNotifDate = selectedNotifDate ??
+                        selectedDueDate!.subtract(const Duration(days: 7));
+
                     if (editingId != null) {
                       final index =
                           _terms.indexWhere((t) => t.id == editingId);
@@ -1117,7 +1250,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           carName: widget.carName,
                           title: selectedCategory,
                           description: descController.text.trim(),
-                          dueDate: selectedDate!,
+                          dueDate: selectedDueDate!,
+                          notificationDate: finalNotifDate,
                           notificationHour: selectedTime.hour,
                           notificationMinute: selectedTime.minute,
                         );
@@ -1135,7 +1269,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         carName: widget.carName,
                         title: selectedCategory,
                         description: descController.text.trim(),
-                        dueDate: selectedDate!,
+                        dueDate: selectedDueDate!,
+                        notificationDate: finalNotifDate,
                         notificationHour: selectedTime.hour,
                         notificationMinute: selectedTime.minute,
                       );
@@ -1598,8 +1733,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
           statusColor = Colors.red.shade800;
           statusText = 'Po terminie (${daysLeft.abs()} dni)';
         } else if (daysLeft == 0) {
-          statusColor = Colors.red.shade700;
           statusText = 'Dzisiaj!';
+          statusColor = Colors.red;
         } else if (daysLeft <= 14) {
           statusColor = Colors.redAccent.shade700;
         }
@@ -1649,21 +1784,47 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                        'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              'Termin: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Alert: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.notificationDate)} o ${_formatTime(item.notificationHour, item.notificationMinute)}',
+                            style: TextStyle(
+                                color: Colors.grey.shade400, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_active_outlined,
+                              color: Colors.amber),
+                          tooltip: 'Testuj powiadomienie teraz',
+                          onPressed: () => _sendTestNotification(item),
+                        ),
                         TextButton.icon(
                           onPressed: () async {
                             final newDate = DateTime(item.dueDate.year + 1,
                                 item.dueDate.month, item.dueDate.day);
+                            final newNotif = DateTime(
+                                item.notificationDate.year + 1,
+                                item.notificationDate.month,
+                                item.notificationDate.day);
                             final updated = TermItem(
                               id: item.id,
                               carName: item.carName,
                               title: item.title,
                               description: item.description,
                               dueDate: newDate,
+                              notificationDate: newNotif,
                               notificationHour: item.notificationHour,
                               notificationMinute: item.notificationMinute,
                             );
