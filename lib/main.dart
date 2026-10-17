@@ -50,6 +50,12 @@ Future<void> main() async {
   runApp(const AutoTerminApp());
 }
 
+class CarPreset {
+  final IconData icon;
+  final String label;
+  const CarPreset(this.icon, this.label);
+}
+
 class CarItem {
   final String name;
   final String imagePath;
@@ -99,8 +105,8 @@ class TermItem {
         title: map['title'] ?? '',
         description: map['description'] ?? '',
         dueDate: DateTime.parse(map['dueDate']),
-        notificationHour: map['notificationHour'] ?? 9,
-        notificationMinute: map['notificationMinute'] ?? 0,
+        notificationHour: (map['notificationHour'] as num?)?.toInt() ?? 9,
+        notificationMinute: (map['notificationMinute'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -137,7 +143,7 @@ class RepairItem {
         id: map['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
         carName: map['carName'] ?? '',
         title: map['title'] ?? 'Naprawa',
-        cost: (map['cost'] ?? 0.0).toDouble(),
+        cost: (map['cost'] as num?)?.toDouble() ?? 0.0,
         mileage: map['mileage'] ?? '',
         workshop: map['workshop'] ?? '',
         date: DateTime.parse(map['date']),
@@ -225,11 +231,11 @@ class _HomeScreenState extends State<HomeScreen> {
   List<RepairItem> _repairs = [];
   List<CarItem> _cars = [];
 
-  final Map<String, Map<String, dynamic>> _presetIllustrations = {
-    'suv': {'icon': Icons.airport_shuttle_rounded, 'label': 'SUV'},
-    'sedan': {'icon': Icons.directions_car_filled_rounded, 'label': 'Sedan'},
-    'sport': {'icon': Icons.electric_car_rounded, 'label': 'Sport'},
-    'van': {'icon': Icons.local_shipping_rounded, 'label': 'Van'},
+  final Map<String, CarPreset> _presetIllustrations = const {
+    'suv': CarPreset(Icons.airport_shuttle_rounded, 'SUV'),
+    'sedan': CarPreset(Icons.directions_car_filled_rounded, 'Sedan'),
+    'sport': CarPreset(Icons.electric_car_rounded, 'Sport'),
+    'van': CarPreset(Icons.local_shipping_rounded, 'Van'),
   };
 
   @override
@@ -279,12 +285,12 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => Padding(
+        builder: (modalContext, setModalState) => Padding(
           padding: EdgeInsets.only(
             top: 24,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -292,7 +298,8 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text('Dodaj pojazd',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: customCarController,
@@ -306,7 +313,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 const Text('Wybierz gotową ilustrację auta:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -314,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final isSelected =
                         selectedPreset == entry.key && galleryImagePath == null;
                     return GestureDetector(
-                      onTap: () => setDialogState(() {
+                      onTap: () => setModalState(() {
                         selectedPreset = entry.key;
                         galleryImagePath = null;
                       }),
@@ -335,13 +343,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(entry.value['icon'],
+                            Icon(entry.value.icon,
                                 size: 28,
                                 color: isSelected
                                     ? Colors.blueAccent
                                     : Colors.grey),
                             const SizedBox(height: 4),
-                            Text(entry.value['label'],
+                            Text(entry.value.label,
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -366,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
                     if (image != null) {
-                      setDialogState(() {
+                      setModalState(() {
                         galleryImagePath = image.path;
                       });
                     }
@@ -419,12 +427,12 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => Padding(
+        builder: (modalContext, setModalState) => Padding(
           padding: EdgeInsets.only(
             top: 24,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -436,7 +444,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 const Text('Wybierz nową ilustrację:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -444,7 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final isSelected =
                         selectedPreset == entry.key && galleryImagePath == null;
                     return GestureDetector(
-                      onTap: () => setDialogState(() {
+                      onTap: () => setModalState(() {
                         selectedPreset = entry.key;
                         galleryImagePath = null;
                       }),
@@ -465,13 +474,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(entry.value['icon'],
+                            Icon(entry.value.icon,
                                 size: 28,
                                 color: isSelected
                                     ? Colors.blueAccent
                                     : Colors.grey),
                             const SizedBox(height: 4),
-                            Text(entry.value['label'],
+                            Text(entry.value.label,
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -496,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
                     if (image != null) {
-                      setDialogState(() {
+                      setModalState(() {
                         galleryImagePath = image.path;
                       });
                     }
@@ -629,12 +638,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 Widget imageWidget;
-                if (_presetIllustrations.containsKey(car.imagePath)) {
+                final preset = _presetIllustrations[car.imagePath];
+                if (preset != null) {
                   imageWidget = Container(
                     color: const Color(0xFF1E3C72).withOpacity(0.8),
                     child: Center(
-                      child: Icon(_presetIllustrations[car.imagePath]!['icon'],
-                          size: 70, color: Colors.white),
+                      child: Icon(preset.icon, size: 70, color: Colors.white),
                     ),
                   );
                 } else {
@@ -661,10 +670,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => CarDetailScreen(
-                              carName: car.name,
-                              carImageUrl: car.imagePath,
-                              presetMap: _presetIllustrations.map((k, v) =>
-                                  MapEntry(k, v['icon'] as IconData))),
+                            carName: car.name,
+                            carImageUrl: car.imagePath,
+                            presetMap: _presetIllustrations,
+                          ),
                         ),
                       ).then((_) => _loadData());
                     },
@@ -773,12 +782,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class CarDetailScreen extends StatefulWidget {
   final String carName;
   final String carImageUrl;
-  final Map<String, IconData> presetMap;
-  const CarDetailScreen(
-      {super.key,
-      required this.carName,
-      required this.carImageUrl,
-      required this.presetMap});
+  final Map<String, CarPreset> presetMap;
+  const CarDetailScreen({
+    super.key,
+    required this.carName,
+    required this.carImageUrl,
+    required this.presetMap,
+  });
 
   @override
   State<CarDetailScreen> createState() => _CarDetailScreenState();
@@ -811,6 +821,12 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   int _safeNotificationId(String id) {
     return id.hashCode & 0x7fffffff;
+  }
+
+  String _formatTime(int hour, int minute) {
+    final h = hour.toString().padLeft(2, '0');
+    final m = minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   Future<void> _loadData() async {
@@ -876,32 +892,35 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
   Future<void> _scheduleNotification(TermItem item) async {
     try {
-      DateTime reminderDate = item.dueDate.subtract(const Duration(days: 7));
-      reminderDate = DateTime(reminderDate.year, reminderDate.month,
-          reminderDate.day, item.notificationHour, item.notificationMinute);
-
-      if (reminderDate.isBefore(DateTime.now())) {
-        reminderDate = DateTime.now().add(const Duration(seconds: 15));
-      }
-
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        _safeNotificationId(item.id),
-        'Zbliża się termin: ${item.title} (${widget.carName})',
-        'Upływa: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)} ${item.description.isNotEmpty ? "(${item.description})" : ""}',
-        tz.TZDateTime.from(reminderDate, tz.local),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'przypominajka_channel',
-            'Przypomnienia o terminach',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      await flutterLocalNotificationsPlugin
+          .cancel(_safeNotificationId(item.id));
     } catch (_) {}
+
+    DateTime reminderDate = item.dueDate.subtract(const Duration(days: 7));
+    reminderDate = DateTime(reminderDate.year, reminderDate.month,
+        reminderDate.day, item.notificationHour, item.notificationMinute);
+
+    if (reminderDate.isBefore(DateTime.now())) {
+      reminderDate = DateTime.now().add(const Duration(seconds: 15));
+    }
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      _safeNotificationId(item.id),
+      'Zbliża się termin: ${item.title} (${widget.carName})',
+      'Upływa: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)} ${item.description.isNotEmpty ? "(${item.description})" : ""}',
+      tz.TZDateTime.from(reminderDate, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'przypominajka_channel',
+          'Przypomnienia o terminach',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 
   Future<DateTime?> _pickPolishDate(DateTime initialDate) async {
@@ -928,26 +947,18 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
   }
 
   void _showAddEditTermDialog({TermItem? termToEdit}) {
-    final isEditing = termToEdit != null;
+    final String? editingId = termToEdit?.id;
+    final bool isEditing = editingId != null;
     final descController =
-        TextEditingController(text: isEditing ? termToEdit.description : '');
-    DateTime? selectedDate = isEditing ? termToEdit.dueDate : null;
-    TimeOfDay selectedTime = isEditing
-        .toString()
-        .contains('notificationHour') // handled via termToEdit properties below
-        ? TimeOfDay(
-            hour: termToEdit.notificationHour,
-            minute: termToEdit.notificationMinute)
-        : const TimeOfDay(hour: 9, minute: 0);
-
-    if (isEditing) {
-      selectedTime = TimeOfDay(
-          hour: termToEdit.notificationHour,
-          minute: termToEdit.notificationMinute);
-    }
+        TextEditingController(text: termToEdit?.description ?? '');
+    DateTime? selectedDate = termToEdit?.dueDate;
+    TimeOfDay selectedTime = TimeOfDay(
+      hour: termToEdit?.notificationHour ?? 9,
+      minute: termToEdit?.notificationMinute ?? 0,
+    );
 
     String selectedCategory =
-        isEditing ? termToEdit.title : _termCategories.keys.first;
+        termToEdit?.title ?? _termCategories.keys.first;
     if (!_termCategories.containsKey(selectedCategory)) {
       selectedCategory = _termCategories.keys.first;
     }
@@ -1068,7 +1079,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         const Icon(Icons.access_time_rounded),
                         const SizedBox(width: 12),
                         Text(
-                          'Godzina powiadomienia: ${selectedTime.format(context)}',
+                          'Godzina powiadomienia (7 dni przed): ${_formatTime(selectedTime.hour, selectedTime.minute)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -1097,12 +1108,12 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       });
                       return;
                     }
-                    if (isEditing) {
+                    if (editingId != null) {
                       final index =
-                          _terms.indexWhere((t) => t.id == termToEdit.id);
+                          _terms.indexWhere((t) => t.id == editingId);
                       if (index != -1) {
                         final updatedItem = TermItem(
-                          id: termToEdit.id,
+                          id: editingId,
                           carName: widget.carName,
                           title: selectedCategory,
                           description: descController.text.trim(),
@@ -1150,22 +1161,26 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
   }
 
   void _showAddEditRepairDialog({RepairItem? repairToEdit}) async {
-    final isEditing = repairToEdit != null;
+    final String? editingId = repairToEdit?.id;
+    final bool isEditing = editingId != null;
+    final String initialTitle = repairToEdit?.title ?? '';
+    final String initialCost =
+        repairToEdit != null ? repairToEdit.cost.toString() : '';
+    final String initialMileage = repairToEdit?.mileage ?? '';
+    final String initialWorkshop = repairToEdit?.workshop ?? '';
+    DateTime selectedDate = repairToEdit?.date ?? DateTime.now();
+
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final List<String> savedWorkshops =
         prefs.getStringList('saved_workshops') ?? [];
     final List<String> savedRepairTitles =
         prefs.getStringList('saved_repair_titles') ?? [];
 
-    final titleController =
-        TextEditingController(text: isEditing ? repairToEdit.title : '');
-    final costController = TextEditingController(
-        text: isEditing ? repairToEdit.cost.toString() : '');
-    final mileageController =
-        TextEditingController(text: isEditing ? repairToEdit.mileage : '');
-    final workshopController =
-        TextEditingController(text: isEditing ? repairToEdit.workshop : '');
-    DateTime selectedDate = isEditing ? repairToEdit.date : DateTime.now();
+    final titleController = TextEditingController(text: initialTitle);
+    final costController = TextEditingController(text: initialCost);
+    final mileageController = TextEditingController(text: initialMileage);
+    final workshopController = TextEditingController(text: initialWorkshop);
 
     showModalBottomSheet(
       context: context,
@@ -1193,8 +1208,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Autocomplete<String>(
-                  initialValue:
-                      TextEditingValue(text: isEditing ? repairToEdit.title : ''),
+                  initialValue: TextEditingValue(text: initialTitle),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
                       return savedRepairTitles;
@@ -1208,8 +1222,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   onSelected: (String selection) {
                     titleController.text = selection;
                   },
-                  optionsViewBuilder: (context, Function(String) onSelected,
-                      Iterable<String> options) {
+                  optionsViewBuilder: (context, onSelected, options) {
+                    final optionsList = options.toList();
                     return Align(
                       alignment: Alignment.topLeft,
                       child: Material(
@@ -1228,9 +1242,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           child: ListView.builder(
                             padding: EdgeInsets.zero,
                             shrinkWrap: true,
-                            itemCount: options.length,
+                            itemCount: optionsList.length,
                             itemBuilder: (BuildContext context, int index) {
-                              final String option = options.elementAt(index);
+                              final String option = optionsList[index];
                               return InkWell(
                                 onTap: () => onSelected(option),
                                 child: Padding(
@@ -1296,8 +1310,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 Autocomplete<String>(
-                  initialValue: TextEditingValue(
-                      text: isEditing ? repairToEdit.workshop : ''),
+                  initialValue: TextEditingValue(text: initialWorkshop),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
                       return savedWorkshops;
@@ -1311,8 +1324,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                   onSelected: (String selection) {
                     workshopController.text = selection;
                   },
-                  optionsViewBuilder: (context, Function(String) onSelected,
-                      Iterable<String> options) {
+                  optionsViewBuilder: (context, onSelected, options) {
+                    final optionsList = options.toList();
                     return Align(
                       alignment: Alignment.topLeft,
                       child: Material(
@@ -1331,9 +1344,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           child: ListView.builder(
                             padding: EdgeInsets.zero,
                             shrinkWrap: true,
-                            itemCount: options.length,
+                            itemCount: optionsList.length,
                             itemBuilder: (BuildContext context, int index) {
-                              final String option = options.elementAt(index);
+                              final String option = optionsList[index];
                               return InkWell(
                                 onTap: () => onSelected(option),
                                 child: Padding(
@@ -1416,379 +1429,4 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           'saved_repair_titles', savedRepairTitles);
                     }
 
-                    if (workshopVal.isNotEmpty &&
-                        !savedWorkshops.contains(workshopVal)) {
-                      savedWorkshops.add(workshopVal);
-                      await prefs.setStringList(
-                          'saved_workshops', savedWorkshops);
-                    }
-
-                    final costVal =
-                        double.tryParse(costController.text.replaceAll(',', '.')) ??
-                            0.0;
-                    final mileageVal = mileageController.text.trim();
-
-                    if (isEditing) {
-                      final index =
-                          _repairs.indexWhere((r) => r.id == repairToEdit.id);
-                      if (index != -1) {
-                        setState(() {
-                          _repairs[index] = RepairItem(
-                            id: repairToEdit.id,
-                            carName: widget.carName,
-                            title: titleVal,
-                            cost: costVal,
-                            mileage: mileageVal,
-                            workshop: workshopVal,
-                            date: selectedDate,
-                          );
-                          _repairs.sort((a, b) => b.date.compareTo(a.date));
-                        });
-                      }
-                    } else {
-                      final newRepair = RepairItem(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        carName: widget.carName,
-                        title: titleVal,
-                        cost: costVal,
-                        mileage: mileageVal,
-                        workshop: workshopVal,
-                        date: selectedDate,
-                      );
-                      setState(() {
-                        _repairs.add(newRepair);
-                        _repairs.sort((a, b) => b.date.compareTo(a.date));
-                      });
-                    }
-                    Navigator.of(ctx).pop();
-                    await _saveAll();
-                  },
-                  child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz naprawę',
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget headerWidget;
-    if (widget.presetMap.containsKey(widget.carImageUrl)) {
-      headerWidget = Container(
-        color: const Color(0xFF1E3C72),
-        child: Center(
-          child: Icon(widget.presetMap[widget.carImageUrl],
-              size: 90, color: Colors.white),
-        ),
-      );
-    } else {
-      headerWidget = Image.file(
-        File(widget.carImageUrl),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: const Color(0xFF1E3C72),
-          child:
-              const Icon(Icons.directions_car, size: 90, color: Colors.white),
-        ),
-      );
-    }
-
-    return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            centerTitle: true,
-            backgroundColor: const Color(0xFF1E3C72),
-            foregroundColor: Colors.white,
-            flexibleSpace: FlexibleSpaceBar(
-              centerTitle: true,
-              title: Text(
-                widget.carName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                ),
-              ),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  headerWidget,
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7)
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-        body: _currentIndex == 0 ? _buildTermsView() : _buildRepairsView(),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.event_note_rounded), label: 'Terminarz'),
-          NavigationDestination(
-              icon: Icon(Icons.build_rounded), label: 'Naprawy'),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _currentIndex == 0
-            ? _showAddEditTermDialog()
-            : _showAddEditRepairDialog(),
-        backgroundColor: const Color(0xFF1E3C72),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: Text(_currentIndex == 0 ? 'Dodaj termin' : 'Dodaj naprawę',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildTermsView() {
-    if (_terms.isEmpty) {
-      return const Center(
-          child: Text('Brak zaplanowanych terminów dla tego auta',
-              style: TextStyle(color: Colors.grey)));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _terms.length,
-      itemBuilder: (ctx, i) {
-        final item = _terms[i];
-        final daysLeft = _calculateDaysLeft(item.dueDate);
-        final style = _termCategories[item.title] ?? _termCategories['Inne']!;
-
-        Color statusColor = Colors.green.shade600;
-        String statusText = 'Za $daysLeft dni';
-        if (daysLeft < 0) {
-          statusColor = Colors.red.shade800;
-          statusText = 'Po terminie (${daysLeft.abs()} dni)';
-        } else if (daysLeft == 0) {
-          statusColor = Colors.red.shade700;
-          statusText = 'Dzisiaj!';
-        } else if (daysLeft <= 14) {
-          statusColor = Colors.redAccent.shade700;
-        }
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(style.icon, color: style.color, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.title,
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold)),
-                          if (item.description.isNotEmpty)
-                            Text(item.description,
-                                style: TextStyle(
-                                    color: Colors.grey.shade600, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20)),
-                      child: Text(statusText,
-                          style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12)),
-                    ),
-                  ],
-                ),
-                const Divider(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                        'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Row(
-                      children: [
-                        TextButton.icon(
-                          onPressed: () async {
-                            final newDate = DateTime(item.dueDate.year + 1,
-                                item.dueDate.month, item.dueDate.day);
-                            final updated = TermItem(
-                              id: item.id,
-                              carName: item.carName,
-                              title: item.title,
-                              description: item.description,
-                              dueDate: newDate,
-                              notificationHour: item.notificationHour,
-                              notificationMinute: item.notificationMinute,
-                            );
-                            setState(() {
-                              _terms[i] = updated;
-                              _terms.sort(
-                                  (a, b) => a.dueDate.compareTo(b.dueDate));
-                            });
-                            await _saveAll();
-                            await _scheduleNotification(updated);
-                          },
-                          icon: const Icon(Icons.update, size: 16),
-                          label: const Text('+1 rok'),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined,
-                              color: Colors.blue),
-                          tooltip: 'Edytuj termin',
-                          onPressed: () =>
-                              _showAddEditTermDialog(termToEdit: item),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.red),
-                          tooltip: 'Usuń termin',
-                          onPressed: () async {
-                            final removedId = item.id;
-                            setState(() {
-                              _terms.removeAt(i);
-                            });
-                            await _saveAll();
-                            try {
-                              await flutterLocalNotificationsPlugin
-                                  .cancel(_safeNotificationId(removedId));
-                            } catch (_) {}
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRepairsView() {
-    if (_repairs.isEmpty) {
-      return const Center(
-          child: Text('Brak zarejestrowanych napraw dla tego auta',
-              style: TextStyle(color: Colors.grey)));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _repairs.length,
-      itemBuilder: (ctx, i) {
-        final item = _repairs[i];
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(item.title,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('${item.cost.toStringAsFixed(2)} PLN',
-                        style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green)),
-                  ],
-                ),
-                if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  if (item.workshop.isNotEmpty)
-                    Text(
-                      'Warsztat: ${item.workshop}',
-                      style:
-                          TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                    ),
-                  if (item.mileage.isNotEmpty) ...[
-                    if (item.workshop.isNotEmpty) const SizedBox(height: 2),
-                    Text(
-                      'Przebieg: ${item.mileage}',
-                      style:
-                          TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                    ),
-                  ],
-                ],
-                const Divider(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date),
-                        style: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 12)),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined,
-                              color: Colors.blue),
-                          tooltip: 'Edytuj naprawę',
-                          onPressed: () =>
-                              _showAddEditRepairDialog(repairToEdit: item),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline,
-                              color: Colors.red),
-                          tooltip: 'Usuń naprawę',
-                          onPressed: () async {
-                            setState(() => _repairs.removeAt(i));
-                            await _saveAll();
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
+                    if
