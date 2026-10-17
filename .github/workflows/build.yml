@@ -27,6 +27,33 @@ jobs:
         run: |
           rm -rf android
           flutter create --project-name auto_termin --org com.autotermin.app --platforms=android .
+
+          python3 -c '
+          # 1. Dodanie flutter_localizations do pubspec.yaml (wymagane dla polskiego kalendarza)
+          with open("pubspec.yaml", "r") as f:
+              pub = f.read()
+          if "flutter_localizations:" not in pub:
+              pub = pub.replace("dependencies:\n  flutter:\n    sdk: flutter", "dependencies:\n  flutter:\n    sdk: flutter\n  flutter_localizations:\n    sdk: flutter")
+              with open("pubspec.yaml", "w") as f:
+                  f.write(pub)
+
+          # 2. Zmiana nazwy aplikacji na AutoTermin oraz dodanie uprawnień
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r") as f:
+              m = f.read()
+          m = m.replace("android:label=\"auto_termin\"", "android:label=\"AutoTermin\"")
+          perms = """    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>\n"""
+          if "POST_NOTIFICATIONS" not in m:
+              m = m.replace("<application", perms + "    <application")
+          with open(manifest_path, "w") as f:
+              f.write(m)
+          '
+
           flutter pub get
           flutter build apk --release --no-shrink
 
