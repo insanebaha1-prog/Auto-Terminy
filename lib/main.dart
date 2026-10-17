@@ -1429,4 +1429,379 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           'saved_repair_titles', savedRepairTitles);
                     }
 
-                    if
+                    if (workshopVal.isNotEmpty &&
+                        !savedWorkshops.contains(workshopVal)) {
+                      savedWorkshops.add(workshopVal);
+                      await prefs.setStringList(
+                          'saved_workshops', savedWorkshops);
+                    }
+
+                    final costVal = double.tryParse(
+                            costController.text.replaceAll(',', '.')) ??
+                        0.0;
+                    final mileageVal = mileageController.text.trim();
+
+                    if (editingId != null) {
+                      final index =
+                          _repairs.indexWhere((r) => r.id == editingId);
+                      if (index != -1) {
+                        setState(() {
+                          _repairs[index] = RepairItem(
+                            id: editingId,
+                            carName: widget.carName,
+                            title: titleVal,
+                            cost: costVal,
+                            mileage: mileageVal,
+                            workshop: workshopVal,
+                            date: selectedDate,
+                          );
+                          _repairs.sort((a, b) => b.date.compareTo(a.date));
+                        });
+                      }
+                    } else {
+                      final newRepair = RepairItem(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        carName: widget.carName,
+                        title: titleVal,
+                        cost: costVal,
+                        mileage: mileageVal,
+                        workshop: workshopVal,
+                        date: selectedDate,
+                      );
+                      setState(() {
+                        _repairs.add(newRepair);
+                        _repairs.sort((a, b) => b.date.compareTo(a.date));
+                      });
+                    }
+                    Navigator.of(ctx).pop();
+                    await _saveAll();
+                  },
+                  child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz naprawę',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget headerWidget;
+    final preset = widget.presetMap[widget.carImageUrl];
+    if (preset != null) {
+      headerWidget = Container(
+        color: const Color(0xFF1E3C72),
+        child: Center(
+          child: Icon(preset.icon, size: 90, color: Colors.white),
+        ),
+      );
+    } else {
+      headerWidget = Image.file(
+        File(widget.carImageUrl),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: const Color(0xFF1E3C72),
+          child:
+              const Icon(Icons.directions_car, size: 90, color: Colors.white),
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            centerTitle: true,
+            backgroundColor: const Color(0xFF1E3C72),
+            foregroundColor: Colors.white,
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              title: Text(
+                widget.carName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                ),
+              ),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  headerWidget,
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7)
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        body: _currentIndex == 0 ? _buildTermsView() : _buildRepairsView(),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.event_note_rounded), label: 'Terminarz'),
+          NavigationDestination(
+              icon: Icon(Icons.build_rounded), label: 'Naprawy'),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _currentIndex == 0
+            ? _showAddEditTermDialog()
+            : _showAddEditRepairDialog(),
+        backgroundColor: const Color(0xFF1E3C72),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: Text(_currentIndex == 0 ? 'Dodaj termin' : 'Dodaj naprawę',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildTermsView() {
+    if (_terms.isEmpty) {
+      return const Center(
+          child: Text('Brak zaplanowanych terminów dla tego auta',
+              style: TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _terms.length,
+      itemBuilder: (ctx, i) {
+        final item = _terms[i];
+        final daysLeft = _calculateDaysLeft(item.dueDate);
+        final style = _termCategories[item.title] ?? _termCategories['Inne']!;
+
+        Color statusColor = Colors.green.shade600;
+        String statusText = 'Za $daysLeft dni';
+        if (daysLeft < 0) {
+          statusColor = Colors.red.shade800;
+          statusText = 'Po terminie (${daysLeft.abs()} dni)';
+        } else if (daysLeft == 0) {
+          statusColor = Colors.red.shade700;
+          statusText = 'Dzisiaj!';
+        } else if (daysLeft <= 14) {
+          statusColor = Colors.redAccent.shade700;
+        }
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(style.icon, color: style.color, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.title,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          if (item.description.isNotEmpty)
+                            Text(item.description,
+                                style: TextStyle(
+                                    color: Colors.grey.shade600, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Text(statusText,
+                          style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                        'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            final newDate = DateTime(item.dueDate.year + 1,
+                                item.dueDate.month, item.dueDate.day);
+                            final updated = TermItem(
+                              id: item.id,
+                              carName: item.carName,
+                              title: item.title,
+                              description: item.description,
+                              dueDate: newDate,
+                              notificationHour: item.notificationHour,
+                              notificationMinute: item.notificationMinute,
+                            );
+                            setState(() {
+                              _terms[i] = updated;
+                              _terms.sort(
+                                  (a, b) => a.dueDate.compareTo(b.dueDate));
+                            });
+                            await _saveAll();
+                            await _scheduleNotification(updated);
+                          },
+                          icon: const Icon(Icons.update, size: 16),
+                          label: const Text('+1 rok'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              color: Colors.blue),
+                          tooltip: 'Edytuj termin',
+                          onPressed: () =>
+                              _showAddEditTermDialog(termToEdit: item),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red),
+                          tooltip: 'Usuń termin',
+                          onPressed: () async {
+                            final removedId = item.id;
+                            setState(() {
+                              _terms.removeAt(i);
+                            });
+                            await _saveAll();
+                            try {
+                              await flutterLocalNotificationsPlugin
+                                  .cancel(_safeNotificationId(removedId));
+                            } catch (_) {}
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRepairsView() {
+    if (_repairs.isEmpty) {
+      return const Center(
+          child: Text('Brak zarejestrowanych napraw dla tego auta',
+              style: TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _repairs.length,
+      itemBuilder: (ctx, i) {
+        final item = _repairs[i];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(item.title,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${item.cost.toStringAsFixed(2)} PLN',
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green)),
+                  ],
+                ),
+                if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  if (item.workshop.isNotEmpty)
+                    Text(
+                      'Warsztat: ${item.workshop}',
+                      style:
+                          TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  if (item.mileage.isNotEmpty) ...[
+                    if (item.workshop.isNotEmpty) const SizedBox(height: 2),
+                    Text(
+                      'Przebieg: ${item.mileage}',
+                      style:
+                          TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  ],
+                ],
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date),
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 12)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              color: Colors.blue),
+                          tooltip: 'Edytuj naprawę',
+                          onPressed: () =>
+                              _showAddEditRepairDialog(repairToEdit: item),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red),
+                          tooltip: 'Usuń naprawę',
+                          onPressed: () async {
+                            setState(() => _repairs.removeAt(i));
+                            await _saveAll();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
