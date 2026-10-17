@@ -933,18 +933,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         TextEditingController(text: isEditing ? termToEdit.description : '');
     DateTime? selectedDate = isEditing ? termToEdit.dueDate : null;
     TimeOfDay selectedTime = isEditing
-        .toString()
-        .contains('notificationHour') // handled via termToEdit properties below
         ? TimeOfDay(
             hour: termToEdit.notificationHour,
             minute: termToEdit.notificationMinute)
         : const TimeOfDay(hour: 9, minute: 0);
-
-    if (isEditing) {
-      selectedTime = TimeOfDay(
-          hour: termToEdit.notificationHour,
-          minute: termToEdit.notificationMinute);
-    }
 
     String selectedCategory =
         isEditing ? termToEdit.title : _termCategories.keys.first;
@@ -1009,3 +1001,786 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await _pickPolishDate(selectedDate ??
+                        DateTime.now().add(const Duration(days: 30)));
+                    if (picked != null) {
+                      setModalState(() {
+                        selectedDate = picked;
+                        errorText = null;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: errorText != null
+                              ? Colors.red
+                              : Colors.grey.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month),
+                        const SizedBox(width: 12),
+                        Text(
+                          selectedDate == null
+                              ? 'Wybierz datę ważności'
+                              : 'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate!)}',
+                          style: TextStyle(
+                              fontWeight: selectedDate == null
+                                  ? FontWeight.normal
+                                  : FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final pickedTime = await _pickTime(selectedTime);
+                    if (pickedTime != null) {
+                      setModalState(() {
+                        selectedTime = pickedTime;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time_rounded),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Godzina powiadomienia: ${selectedTime.format(context)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (errorText != null) ...[
+                  const SizedBox(height: 6),
+                  Text(errorText!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12)),
+                ],
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3C72),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    if (selectedDate == null) {
+                      setModalState(() {
+                        errorText =
+                            'Najpierw wybierz datę ważności z kalendarza!';
+                      });
+                      return;
+                    }
+                    if (isEditing) {
+                      final index =
+                          _terms.indexWhere((t) => t.id == termToEdit.id);
+                      if (index != -1) {
+                        final updatedItem = TermItem(
+                          id: termToEdit.id,
+                          carName: widget.carName,
+                          title: selectedCategory,
+                          description: descController.text.trim(),
+                          dueDate: selectedDate!,
+                          notificationHour: selectedTime.hour,
+                          notificationMinute: selectedTime.minute,
+                        );
+                        setState(() {
+                          _terms[index] = updatedItem;
+                          _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                        });
+                        Navigator.of(ctx).pop();
+                        await _saveAll();
+                        await _scheduleNotification(updatedItem);
+                      }
+                    } else {
+                      final newItem = TermItem(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        carName: widget.carName,
+                        title: selectedCategory,
+                        description: descController.text.trim(),
+                        dueDate: selectedDate!,
+                        notificationHour: selectedTime.hour,
+                        notificationMinute: selectedTime.minute,
+                      );
+                      setState(() {
+                        _terms.add(newItem);
+                        _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+                      });
+                      Navigator.of(ctx).pop();
+                      await _saveAll();
+                      await _scheduleNotification(newItem);
+                    }
+                  },
+                  child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz termin',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddEditRepairDialog({RepairItem? repairToEdit}) async {
+    final isEditing = repairToEdit != null;
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> savedWorkshops =
+        prefs.getStringList('saved_workshops') ?? [];
+    final List<String> savedRepairTitles =
+        prefs.getStringList('saved_repair_titles') ?? [];
+
+    final titleController =
+        TextEditingController(text: isEditing ? repairToEdit.title : '');
+    final costController = TextEditingController(
+        text: isEditing ? repairToEdit.cost.toString() : '');
+    final mileageController =
+        TextEditingController(text: isEditing ? repairToEdit.mileage : '');
+    final workshopController =
+        TextEditingController(text: isEditing ? repairToEdit.workshop : '');
+    DateTime selectedDate = isEditing ? repairToEdit.date : DateTime.now();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalContext, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            top: 24,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                    isEditing
+                        ? 'Edytuj naprawę / serwis'
+                        : 'Nowa naprawa / serwis',
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Autocomplete<String>(
+                  initialValue:
+                      TextEditingValue(text: isEditing ? repairToEdit.title : ''),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return savedRepairTitles;
+                    }
+                    return savedRepairTitles.where((String option) {
+                      return option
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    titleController.text = selection;
+                  },
+                  optionsViewBuilder: (context, Function(String) onSelected,
+                      Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: MediaQuery.of(context).size.width - 40,
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: Colors.blueAccent.withOpacity(0.5)),
+                          ),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return InkWell(
+                                onTap: () => onSelected(option),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Text(
+                                    option,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 15),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  fieldViewBuilder:
+                      (context, controller, focusNode, onFieldSubmitted) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: [UpperCaseFirstLetterFormatter()],
+                      onChanged: (val) {
+                        titleController.text = val;
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Nazwa naprawy (np. Wymiana klocków)',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: costController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Koszt (PLN)',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: mileageController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Przebieg',
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Autocomplete<String>(
+                  initialValue: TextEditingValue(
+                      text: isEditing ? repairToEdit.workshop : ''),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    if (textEditingValue.text.isEmpty) {
+                      return savedWorkshops;
+                    }
+                    return savedWorkshops.where((String option) {
+                      return option
+                          .toLowerCase()
+                          .contains(textEditingValue.text.toLowerCase());
+                    });
+                  },
+                  onSelected: (String selection) {
+                    workshopController.text = selection;
+                  },
+                  optionsViewBuilder: (context, Function(String) onSelected,
+                      Iterable<String> options) {
+                    return Align(
+                      alignment: Alignment.topLeft,
+                      child: Material(
+                        elevation: 4.0,
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: MediaQuery.of(context).size.width - 40,
+                          constraints: const BoxConstraints(maxHeight: 200),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: Colors.blueAccent.withOpacity(0.5)),
+                          ),
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: options.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final String option = options.elementAt(index);
+                              return InkWell(
+                                onTap: () => onSelected(option),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Text(
+                                    option,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 15),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  fieldViewBuilder:
+                      (context, controller, focusNode, onFieldSubmitted) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: [UpperCaseFirstLetterFormatter()],
+                      onChanged: (val) {
+                        workshopController.text = val;
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Warsztat (nazwa lub adres)',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await _pickPolishDate(selectedDate);
+                    if (picked != null) {
+                      setModalState(() => selectedDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month),
+                        const SizedBox(width: 12),
+                        Text(
+                            'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDate)}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3C72),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    final titleVal = titleController.text.trim();
+                    if (titleVal.isEmpty) return;
+
+                    final workshopVal = workshopController.text.trim();
+
+                    if (!savedRepairTitles.contains(titleVal)) {
+                      savedRepairTitles.add(titleVal);
+                      await prefs.setStringList(
+                          'saved_repair_titles', savedRepairTitles);
+                    }
+
+                    if (workshopVal.isNotEmpty &&
+                        !savedWorkshops.contains(workshopVal)) {
+                      savedWorkshops.add(workshopVal);
+                      await prefs.setStringList(
+                          'saved_workshops', savedWorkshops);
+                    }
+
+                    final costVal =
+                        double.tryParse(costController.text.replaceAll(',', '.')) ??
+                            0.0;
+                    final mileageVal = mileageController.text.trim();
+
+                    if (isEditing) {
+                      final index =
+                          _repairs.indexWhere((r) => r.id == repairToEdit.id);
+                      if (index != -1) {
+                        setState(() {
+                          _repairs[index] = RepairItem(
+                            id: repairToEdit.id,
+                            carName: widget.carName,
+                            title: titleVal,
+                            cost: costVal,
+                            mileage: mileageVal,
+                            workshop: workshopVal,
+                            date: selectedDate,
+                          );
+                          _repairs.sort((a, b) => b.date.compareTo(a.date));
+                        });
+                      }
+                    } else {
+                      final newRepair = RepairItem(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        carName: widget.carName,
+                        title: titleVal,
+                        cost: costVal,
+                        mileage: mileageVal,
+                        workshop: workshopVal,
+                        date: selectedDate,
+                      );
+                      setState(() {
+                        _repairs.add(newRepair);
+                        _repairs.sort((a, b) => b.date.compareTo(a.date));
+                      });
+                    }
+                    Navigator.of(ctx).pop();
+                    await _saveAll();
+                  },
+                  child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz naprawę',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget headerWidget;
+    if (widget.presetMap.containsKey(widget.carImageUrl)) {
+      headerWidget = Container(
+        color: const Color(0xFF1E3C72),
+        child: Center(
+          child: Icon(widget.presetMap[widget.carImageUrl],
+              size: 90, color: Colors.white),
+        ),
+      );
+    } else {
+      headerWidget = Image.file(
+        File(widget.carImageUrl),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: const Color(0xFF1E3C72),
+          child:
+              const Icon(Icons.directions_car, size: 90, color: Colors.white),
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            centerTitle: true,
+            backgroundColor: const Color(0xFF1E3C72),
+            foregroundColor: Colors.white,
+            flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              title: Text(
+                widget.carName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                ),
+              ),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  headerWidget,
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7)
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        body: _currentIndex == 0 ? _buildTermsView() : _buildRepairsView(),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.event_note_rounded), label: 'Terminarz'),
+          NavigationDestination(
+              icon: Icon(Icons.build_rounded), label: 'Naprawy'),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _currentIndex == 0
+            ? _showAddEditTermDialog()
+            : _showAddEditRepairDialog(),
+        backgroundColor: const Color(0xFF1E3C72),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: Text(_currentIndex == 0 ? 'Dodaj termin' : 'Dodaj naprawę',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildTermsView() {
+    if (_terms.isEmpty) {
+      return const Center(
+          child: Text('Brak zaplanowanych terminów dla tego auta',
+              style: TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _terms.length,
+      itemBuilder: (ctx, i) {
+        final item = _terms[i];
+        final daysLeft = _calculateDaysLeft(item.dueDate);
+        final style = _termCategories[item.title] ?? _termCategories['Inne']!;
+
+        Color statusColor = Colors.green.shade600;
+        String statusText = 'Za $daysLeft dni';
+        if (daysLeft < 0) {
+          statusColor = Colors.red.shade800;
+          statusText = 'Po terminie (${daysLeft.abs()} dni)';
+        } else if (daysLeft == 0) {
+          statusColor = Colors.red.shade700;
+          statusText = 'Dzisiaj!';
+        } else if (daysLeft <= 14) {
+          statusColor = Colors.redAccent.shade700;
+        }
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(style.icon, color: style.color, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.title,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          if (item.description.isNotEmpty)
+                            Text(item.description,
+                                style: TextStyle(
+                                    color: Colors.grey.shade600, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Text(statusText,
+                          style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                        'Data: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            final newDate = DateTime(item.dueDate.year + 1,
+                                item.dueDate.month, item.dueDate.day);
+                            final updated = TermItem(
+                              id: item.id,
+                              carName: item.carName,
+                              title: item.title,
+                              description: item.description,
+                              dueDate: newDate,
+                              notificationHour: item.notificationHour,
+                              notificationMinute: item.notificationMinute,
+                            );
+                            setState(() {
+                              _terms[i] = updated;
+                              _terms.sort(
+                                  (a, b) => a.dueDate.compareTo(b.dueDate));
+                            });
+                            await _saveAll();
+                            await _scheduleNotification(updated);
+                          },
+                          icon: const Icon(Icons.update, size: 16),
+                          label: const Text('+1 rok'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              color: Colors.blue),
+                          tooltip: 'Edytuj termin',
+                          onPressed: () =>
+                              _showAddEditTermDialog(termToEdit: item),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red),
+                          tooltip: 'Usuń termin',
+                          onPressed: () async {
+                            final removedId = item.id;
+                            setState(() {
+                              _terms.removeAt(i);
+                            });
+                            await _saveAll();
+                            try {
+                              await flutterLocalNotificationsPlugin
+                                  .cancel(_safeNotificationId(removedId));
+                            } catch (_) {}
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRepairsView() {
+    if (_repairs.isEmpty) {
+      return const Center(
+          child: Text('Brak zarejestrowanych napraw dla tego auta',
+              style: TextStyle(color: Colors.grey)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _repairs.length,
+      itemBuilder: (ctx, i) {
+        final item = _repairs[i];
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(item.title,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${item.cost.toStringAsFixed(2)} PLN',
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green)),
+                  ],
+                ),
+                if (item.workshop.isNotEmpty || item.mileage.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  if (item.workshop.isNotEmpty)
+                    Text(
+                      'Warsztat: ${item.workshop}',
+                      style:
+                          TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  if (item.mileage.isNotEmpty) ...[
+                    if (item.workshop.isNotEmpty) const SizedBox(height: 2),
+                    Text(
+                      'Przebieg: ${item.mileage}',
+                      style:
+                          TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                    ),
+                  ],
+                ],
+                const Divider(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(DateFormat('dd.MM.yyyy', 'pl_PL').format(item.date),
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 12)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              color: Colors.blue),
+                          tooltip: 'Edytuj naprawę',
+                          onPressed: () =>
+                              _showAddEditRepairDialog(repairToEdit: item),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: Colors.red),
+                          tooltip: 'Usuń naprawę',
+                          onPressed: () async {
+                            setState(() => _repairs.removeAt(i));
+                            await _saveAll();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
