@@ -53,7 +53,7 @@ Future<void> main() async {
     await androidPlugin.requestNotificationsPermission();
     await androidPlugin.requestExactAlarmsPermission();
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'autotermin_channel_v10',
+      'autotermin_channel_v11',
       'Przypomnienia o terminach',
       description: 'Powiadomienia o zbliżających się terminach dla pojazdów',
       importance: Importance.max,
@@ -295,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _saveCars() async {
     final prefs = await SharedPreferences.getInstance();
     final listJson = _cars.map((c) => jsonEncode(c.toMap())).toList();
-    await prefs.getStringList('saved_cars_objects', listJson);
+    await prefs.setStringList('saved_cars_objects', listJson);
   }
 
   void _showAddCarDialog() {
@@ -529,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
                     if (image != null) {
-                      setDialogState(() {
+                      setModalState(() {
                         galleryImagePath = image.path;
                       });
                     }
@@ -921,7 +921,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v10',
+        'autotermin_channel_v11',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -973,7 +973,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v10',
+        'autotermin_channel_v11',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -984,7 +984,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
       ),
     );
 
-    final String title = '${item.title} - ${widget.carName}';
+    // Krótki i przejrzysty tytuł, aby system go nie uciął
+    final String title = '${item.title} (${widget.carName})';
     final String body =
         'Ważne do: $dueFormatted${item.description.isNotEmpty ? " • ${item.description}" : ""}';
 
