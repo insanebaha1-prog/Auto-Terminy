@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -14,187 +13,6 @@ import 'package:timezone/timezone.dart' as tz;
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
-
-final Map<String, Timer> _activeNotificationTimers = {};
-final Set<String> _deliveredNotificationKeys = {};
-List<TermItem> _globalTermsWatchList = [];
-
-int safeNotificationId(String id) {
-  return id.hashCode & 0x7fffffff;
-}
-
-Future<void> triggerImmediateNotification(TermItem item, {bool isTest = false}) async {
-  final String dueFormatted =
-      DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
-  final String title = isTest ? 'Test: ${item.carName}' : item.carName;
-  final String body =
-      '${item.title} • Termin: $dueFormatted${item.description.isNotEmpty ? " (${item.description})" : ""}';
-
-  final NotificationDetails details = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'autotermin_channel_v14',
-      'Przypomnienia o terminach',
-      channelDescription:
-          'Powiadomienia o zbliżających się terminach dla pojazdów',
-      icon: '@mipmap/ic_launcher',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-      styleInformation: BigTextStyleInformation(
-        body,
-        contentTitle: title,
-      ),
-    ),
-  );
-
-  await flutterLocalNotificationsPlugin.show(
-    safeNotificationId(isTest ? '${item.id}_test' : item.id),
-    title,
-    body,
-    details,
-  );
-}
-
-Future<void> scheduleHybridNotification(TermItem item) async {
-  _activeNotificationTimers[item.id]?.cancel();
-  _activeNotificationTimers.remove(item.id);
-
-  try {
-    await flutterLocalNotificationsPlugin.cancel(safeNotificationId(item.id));
-  } catch (_) {}
-
-  if (item.notificationDate == null) return;
-
-  final DateTime targetDateTime = DateTime(
-    item.notificationDate!.year,
-    item.notificationDate!.month,
-    item.notificationDate!.day,
-    item.notificationHour,
-    item.notificationMinute,
-  );
-
-  final DateTime now = DateTime.now();
-  Duration delay = targetDateTime.difference(now);
-
-  // Jeśli użytkownik ustawił bieżącą minutę, wyzwól po 3 sekundach
-  if (delay.isNegative && delay.inSeconds >= -59) {
-    delay = const Duration(seconds: 3);
-  }
-
-  if (delay.isNegative) return;
-
-  final String scheduleKey =
-      '${item.id}_${targetDateTime.millisecondsSinceEpoch}';
-  _deliveredNotificationKeys.remove(scheduleKey);
-
-  // 1. Aktywny Timer gwarantujący dostarczenie powiadomienia
-  _activeNotificationTimers[item.id] = Timer(delay, () async {
-    if (!_deliveredNotificationKeys.contains(scheduleKey)) {
-      _deliveredNotificationKeys.add(scheduleKey);
-      try {
-        await flutterLocalNotificationsPlugin
-            .cancel(safeNotificationId(item.id));
-      } catch (_) {}
-      await triggerImmediateNotification(item);
-    }
-  });
-
-  // 2. Systemowy budzik Androida (AlarmClock) działający po zamknięciu aplikacji
-  final tz.TZDateTime scheduledTz = tz.TZDateTime.now(tz.local).add(delay);
-  final String dueFormatted =
-      DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
-  final String title = item.carName;
-  final String body =
-      '${item.title} • Termin: $dueFormatted${item.description.isNotEmpty ? " (${item.description})" : ""}';
-
-  final NotificationDetails details = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'autotermin_channel_v14',
-      'Przypomnienia o terminach',
-      channelDescription:
-          'Powiadomienia o zbliżających się terminach dla pojazdów',
-      icon: '@mipmap/ic_launcher',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-      styleInformation: BigTextStyleInformation(
-        body,
-        contentTitle: title,
-      ),
-    ),
-  );
-
-  try {
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      safeNotificationId(item.id),
-      title,
-      body,
-      scheduledTz,
-      details,
-      androidScheduleMode: AndroidScheduleMode.alarmClock,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
-  } catch (_) {
-    try {
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        safeNotificationId(item.id),
-        title,
-        body,
-        scheduledTz,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (_) {
-      try {
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          safeNotificationId(item.id),
-          title,
-          body,
-          scheduledTz,
-          details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (_) {}
-    }
-  }
-}
-
-void _startRealtimeNotificationMonitor() {
-  Timer.periodic(const Duration(seconds: 3), (_) async {
-    final DateTime now = DateTime.now();
-    for (final item in _globalTermsWatchList) {
-      if (item.notificationDate == null) continue;
-      final DateTime target = DateTime(
-        item.notificationDate!.year,
-        item.notificationDate!.month,
-        item.notificationDate!.day,
-        item.notificationHour,
-        item.notificationMinute,
-      );
-      final int diffSeconds = now.difference(target).inSeconds;
-      final String scheduleKey = '${item.id}_${target.millisecondsSinceEpoch}';
-
-      if (diffSeconds >= 0 &&
-          diffSeconds <= 300 &&
-          !_deliveredNotificationKeys.contains(scheduleKey)) {
-        _deliveredNotificationKeys.add(scheduleKey);
-        _activeNotificationTimers[item.id]?.cancel();
-        try {
-          await flutterLocalNotificationsPlugin
-              .cancel(safeNotificationId(item.id));
-        } catch (_) {}
-        await triggerImmediateNotification(item);
-      }
-    }
-  });
-}
 
 class UpperCaseFirstLetterFormatter extends TextInputFormatter {
   @override
@@ -232,8 +50,10 @@ Future<void> main() async {
           AndroidFlutterLocalNotificationsPlugin>();
 
   if (androidPlugin != null) {
+    await androidPlugin.requestNotificationsPermission();
+    await androidPlugin.requestExactAlarmsPermission();
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'autotermin_channel_v14',
+      'autotermin_channel_v16',
       'Przypomnienia o terminach',
       description: 'Powiadomienia o zbliżających się terminach dla pojazdów',
       importance: Importance.max,
@@ -241,11 +61,8 @@ Future<void> main() async {
       enableVibration: true,
     );
     await androidPlugin.createNotificationChannel(channel);
-    await androidPlugin.requestNotificationsPermission();
-    await androidPlugin.requestExactAlarmsPermission();
   }
 
-  _startRealtimeNotificationMonitor();
   runApp(const AutoTerminApp());
 }
 
@@ -464,7 +281,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (termsJson != null) {
       final List<dynamic> decoded = jsonDecode(termsJson);
       _terms = decoded.map((e) => TermItem.fromMap(e)).toList();
-      _globalTermsWatchList = List.from(_terms);
     }
 
     final String? repairsJson = prefs.getString('saved_repairs');
@@ -635,12 +451,12 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
-        builder: (modalContext, setModalState) => Padding(
+        builder: (context, setDialogState) => Padding(
           padding: EdgeInsets.only(
             top: 24,
             left: 20,
             right: 20,
-            bottom: MediaQuery.of(modalContext).viewInsets.bottom + 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -1029,6 +845,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     _loadData();
   }
 
+  int _safeNotificationId(String id) {
+    return id.hashCode & 0x7fffffff;
+  }
+
   String _formatTime(int hour, int minute) {
     final h = hour.toString().padLeft(2, '0');
     final m = minute.toString().padLeft(2, '0');
@@ -1041,9 +861,10 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     final String? termsJson = prefs.getString('saved_terms');
     if (termsJson != null) {
       final List<dynamic> decoded = jsonDecode(termsJson);
-      final allLoaded = decoded.map((e) => TermItem.fromMap(e)).toList();
-      _globalTermsWatchList = List.from(allLoaded);
-      _terms = allLoaded.where((t) => t.carName == widget.carName).toList();
+      _terms = decoded
+          .map((e) => TermItem.fromMap(e))
+          .where((t) => t.carName == widget.carName)
+          .toList();
       _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
     }
 
@@ -1072,7 +893,6 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
           .toList();
     }
     allTerms.addAll(_terms);
-    _globalTermsWatchList = List.from(allTerms);
     await prefs.setString(
         'saved_terms', jsonEncode(allTerms.map((e) => e.toMap()).toList()));
 
@@ -1094,6 +914,116 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final due = DateTime(dueDate.year, dueDate.month, dueDate.day);
     return due.difference(today).inDays;
+  }
+
+  NotificationDetails _buildNotificationDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'autotermin_channel_v16',
+        'Przypomnienia o terminach',
+        channelDescription:
+            'Powiadomienia o zbliżających się terminach dla pojazdów',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.alarm,
+        visibility: NotificationVisibility.public,
+      ),
+    );
+  }
+
+  Future<void> _sendTestNotification(TermItem item) async {
+    final String dueFormatted =
+        DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
+    final String title = 'Test: ${item.title} (${widget.carName})';
+    final String body =
+        'Termin ważności: $dueFormatted${item.description.isNotEmpty ? " • ${item.description}" : ""}';
+
+    await flutterLocalNotificationsPlugin.show(
+      _safeNotificationId('${item.id}_test'),
+      title,
+      body,
+      _buildNotificationDetails(),
+    );
+  }
+
+  Future<void> _scheduleNotification(TermItem item) async {
+    try {
+      await flutterLocalNotificationsPlugin
+          .cancel(_safeNotificationId(item.id));
+      await flutterLocalNotificationsPlugin
+          .cancel(_safeNotificationId('${item.id}_custom'));
+    } catch (_) {}
+
+    final String title = '${item.title} (${widget.carName})';
+    final String dueFormatted =
+        DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
+    final String body =
+        'Ważne do: $dueFormatted${item.description.isNotEmpty ? " • ${item.description}" : ""}';
+
+    final NotificationDetails details = _buildNotificationDetails();
+    final DateTime now = DateTime.now();
+
+    // 1. Sztywne powiadomienie na 7 dni przed o 9:00
+    DateTime rigidDate = item.dueDate.subtract(const Duration(days: 7));
+    rigidDate = DateTime(rigidDate.year, rigidDate.month, rigidDate.day, 9, 0);
+
+    Duration rigidDelay = rigidDate.difference(now);
+    if (rigidDelay.isNegative && rigidDelay.inMinutes >= -2) {
+      rigidDelay = const Duration(seconds: 5);
+    }
+
+    if (!rigidDelay.isNegative) {
+      final tz.TZDateTime scheduledRigid =
+          tz.TZDateTime.now(tz.local).add(rigidDelay);
+      try {
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          _safeNotificationId(item.id),
+          title,
+          body,
+          scheduledRigid,
+          details,
+          androidScheduleMode: AndroidScheduleMode.alarmClock,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {}
+    }
+
+    // 2. Dodatkowe ręczne powiadomienie użytkownika
+    if (item.notificationDate != null) {
+      DateTime customDate = DateTime(
+        item.notificationDate!.year,
+        item.notificationDate!.month,
+        item.notificationDate!.day,
+        item.notificationHour,
+        item.notificationMinute,
+      );
+
+      Duration customDelay = customDate.difference(now);
+      if (customDelay.isNegative && customDelay.inMinutes >= -2) {
+        customDelay = const Duration(seconds: 5);
+      }
+
+      if (!customDelay.isNegative) {
+        final tz.TZDateTime scheduledCustom =
+            tz.TZDateTime.now(tz.local).add(customDelay);
+        try {
+          await flutterLocalNotificationsPlugin.zonedSchedule(
+            _safeNotificationId('${item.id}_custom'),
+            title,
+            body,
+            scheduledCustom,
+            details,
+            androidScheduleMode: AndroidScheduleMode.alarmClock,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+          );
+        } catch (_) {}
+      }
+    }
   }
 
   Future<DateTime?> _pickPolishDate(DateTime initialDate) async {
@@ -1222,7 +1152,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         Expanded(
                           child: Text(
                             selectedDueDate == null
-                                ? 'Wybierz datę ważności'
+                                ? 'Wybierz datę ważności terminu'
                                 : 'Termin ważności: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedDueDate!)}',
                             style: TextStyle(
                                 fontWeight: selectedDueDate == null
@@ -1237,7 +1167,9 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                 const SizedBox(height: 12),
                 InkWell(
                   onTap: () async {
-                    final baseDate = selectedNotifDate ?? DateTime.now();
+                    final baseDate = selectedNotifDate ??
+                        selectedDueDate ??
+                        DateTime.now();
                     final pickedNotif = await _pickPolishDate(baseDate);
                     if (pickedNotif != null) {
                       setModalState(() {
@@ -1260,10 +1192,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                             selectedNotifDate == null
                                 ? 'Wybierz datę powiadomienia'
                                 : 'Data powiadomienia: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(selectedNotifDate!)}',
-                            style: TextStyle(
-                                fontWeight: selectedNotifDate == null
-                                    ? FontWeight.normal
-                                    : FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -1324,28 +1253,30 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       return;
                     }
 
-                    TermItem savedItem;
                     if (editingId != null) {
                       final index =
                           _terms.indexWhere((t) => t.id == editingId);
-                      savedItem = TermItem(
-                        id: editingId,
-                        carName: widget.carName,
-                        title: selectedCategory,
-                        description: descController.text.trim(),
-                        dueDate: selectedDueDate!,
-                        notificationDate: selectedNotifDate,
-                        notificationHour: selectedTime.hour,
-                        notificationMinute: selectedTime.minute,
-                      );
                       if (index != -1) {
+                        final updatedItem = TermItem(
+                          id: editingId,
+                          carName: widget.carName,
+                          title: selectedCategory,
+                          description: descController.text.trim(),
+                          dueDate: selectedDueDate!,
+                          notificationDate: selectedNotifDate,
+                          notificationHour: selectedTime.hour,
+                          notificationMinute: selectedTime.minute,
+                        );
                         setState(() {
-                          _terms[index] = savedItem;
+                          _terms[index] = updatedItem;
                           _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
                         });
+                        Navigator.of(ctx).pop();
+                        await _saveAll();
+                        await _scheduleNotification(updatedItem);
                       }
                     } else {
-                      savedItem = TermItem(
+                      final newItem = TermItem(
                         id: DateTime.now().millisecondsSinceEpoch.toString(),
                         carName: widget.carName,
                         title: selectedCategory,
@@ -1356,24 +1287,12 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                         notificationMinute: selectedTime.minute,
                       );
                       setState(() {
-                        _terms.add(savedItem);
+                        _terms.add(newItem);
                         _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
                       });
-                    }
-
-                    Navigator.of(ctx).pop();
-                    await _saveAll();
-                    await scheduleHybridNotification(savedItem);
-
-                    if (mounted && savedItem.notificationDate != null) {
-                      final notifStr =
-                          '${DateFormat('dd.MM.yyyy', 'pl_PL').format(savedItem.notificationDate!)} o ${_formatTime(savedItem.notificationHour, savedItem.notificationMinute)}';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Zaplanowano alert: $notifStr'),
-                          backgroundColor: Colors.green.shade700,
-                        ),
-                      );
+                      Navigator.of(ctx).pop();
+                      await _saveAll();
+                      await _scheduleNotification(newItem);
                     }
                   },
                   child: Text(isEditing ? 'Zapisz zmiany' : 'Zapisz termin',
@@ -1834,6 +1753,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
           statusColor = Colors.redAccent.shade700;
         }
 
+        final rigidNotifDate = item.dueDate.subtract(const Duration(days: 7));
+
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           shape:
@@ -1884,10 +1805,16 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 14),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Alert: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(rigidNotifDate)} o 09:00',
+                      style: TextStyle(
+                          color: Colors.grey.shade400, fontSize: 12),
+                    ),
                     if (item.notificationDate != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
-                        'Alert: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.notificationDate!)} o ${_formatTime(item.notificationHour, item.notificationMinute)}',
+                        'Dodatkowy alert: ${DateFormat('dd.MM.yyyy', 'pl_PL').format(item.notificationDate!)} o ${_formatTime(item.notificationHour, item.notificationMinute)}',
                         style: const TextStyle(
                             color: Colors.blueAccent,
                             fontSize: 12,
@@ -1905,7 +1832,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           color: Colors.amber),
                       tooltip: 'Testuj powiadomienie teraz',
                       onPressed: () =>
-                          triggerImmediateNotification(item, isTest: true),
+                          showImmediateNotification(item, isTest: true),
                     ),
                     TextButton.icon(
                       onPressed: () async {
@@ -1932,7 +1859,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                           _terms.sort((a, b) => a.dueDate.compareTo(b.dueDate));
                         });
                         await _saveAll();
-                        await scheduleHybridNotification(updated);
+                        await scheduleTermNotification(updated);
                       },
                       icon: const Icon(Icons.update, size: 16),
                       label: const Text('+1 rok'),
@@ -1948,8 +1875,8 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
                       tooltip: 'Usuń termin',
                       onPressed: () async {
                         final removedId = item.id;
-                        _activeNotificationTimers[removedId]?.cancel();
-                        _activeNotificationTimers.remove(removedId);
+                        _activeTimers[removedId]?.cancel();
+                        _activeTimers.remove(removedId);
                         setState(() {
                           _terms.removeAt(i);
                         });
@@ -2062,3 +1989,4 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
     );
   }
 }
+ 
