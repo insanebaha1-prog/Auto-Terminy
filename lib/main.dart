@@ -53,7 +53,7 @@ Future<void> main() async {
     await androidPlugin.requestNotificationsPermission();
     await androidPlugin.requestExactAlarmsPermission();
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'autotermin_channel_v12',
+      'autotermin_channel_v13',
       'Przypomnienia o terminach',
       description: 'Powiadomienia o zbliżających się terminach dla pojazdów',
       importance: Importance.max,
@@ -477,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final isSelected =
                         selectedPreset == entry.key && galleryImagePath == null;
                     return GestureDetector(
-                      onTap: () => setModalState(() {
+                      onTap: () => setDialogState(() {
                         selectedPreset = entry.key;
                         galleryImagePath = null;
                       }),
@@ -529,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final XFile? image =
                         await picker.pickImage(source: ImageSource.gallery);
                     if (image != null) {
-                      setModalState(() {
+                      setDialogState(() {
                         galleryImagePath = image.path;
                       });
                     }
@@ -921,7 +921,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
         DateFormat('dd.MM.yyyy', 'pl_PL').format(item.dueDate);
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v12',
+        'autotermin_channel_v13',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
@@ -973,7 +973,7 @@ class _CarDetailScreenState extends State<CarDetailScreen> {
 
     const NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'autotermin_channel_v12',
+        'autotermin_channel_v13',
         'Przypomnienia o terminach',
         channelDescription:
             'Powiadomienia o zbliżających się terminach dla pojazdów',
